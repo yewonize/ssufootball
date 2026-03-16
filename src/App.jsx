@@ -104,6 +104,12 @@ const MainApp = () => {
         </Routes>
       </Suspense>{" "}
       {/* 🔥 Suspense 닫기! */}
+      {selectedMatch && (
+        <MatchDetailModal
+          match={selectedMatch}
+          onClose={() => setSelectedMatch(null)}
+        />
+      )}
     </Layout>
   );
 };

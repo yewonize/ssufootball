@@ -670,6 +670,20 @@ const AdminPanel = ({ toggleAdmin }) => {
             assists: scorer?.assists || 0,
             mom: momId === playerId,
           });
+
+          const playerRef = doc(db, "players", playerId);
+          const yr = String(loggingMatch.date.split("-")[0]);
+
+          batch.update(playerRef, {
+            [`stats.total.goals`]: increment(scorer?.goals || 0),
+            [`stats.total.assists`]: increment(scorer?.assists || 0),
+            [`stats.total.apps`]: increment(1),
+            [`stats.total.mins`]: increment(minutes),
+            [`stats.years.${yr}.goals`]: increment(scorer?.goals || 0),
+            [`stats.years.${yr}.assists`]: increment(scorer?.assists || 0),
+            [`stats.years.${yr}.apps`]: increment(1),
+            [`stats.years.${yr}.mins`]: increment(minutes),
+          });
         }
       });
       await batch.commit();
@@ -679,20 +693,6 @@ const AdminPanel = ({ toggleAdmin }) => {
     } catch (e) {
       alert("저장 실패: " + e.message);
     }
-    // 2. 해당 선수의 집계 데이터 업데이트 추가
-    const playerRef = doc(db, "players", playerId);
-    const yr = String(loggingMatch.date.split("-")[0]);
-
-    batch.update(playerRef, {
-      [`stats.total.goals`]: increment(scorer?.goals || 0),
-      [`stats.total.assists`]: increment(scorer?.assists || 0),
-      [`stats.total.apps`]: increment(1),
-      [`stats.total.mins`]: increment(minutes),
-      [`stats.years.${yr}.goals`]: increment(scorer?.goals || 0),
-      [`stats.years.${yr}.assists`]: increment(scorer?.assists || 0),
-      [`stats.years.${yr}.apps`]: increment(1),
-      [`stats.years.${yr}.mins`]: increment(minutes),
-    });
   };
 
   const handleSaveSimpleEdit = async () => {

@@ -18,60 +18,57 @@ import { useData } from "../contexts/DataContext";
 
 const MatchSchedule = ({ onMatchClick }) => {
   const location = useLocation();
-
-  // 🔥 전역 보관소에서 꺼내기
   const { matches, players, league, matchLogs: match_logs } = useData();
-  // 1. 상태 관리
-  const [activeTab, setActiveTab] = useState("schedule"); // 'schedule' | 'rankings'
+
+  // 🟢 1. 자동으로 가장 최신 연도(예: 2026, 2027)를 찾습니다.
+  const latestYear = useMemo(() => {
+    if (matches && matches.length > 0) {
+      return String(Math.max(...matches.map((m) => Number(m.year))));
+    }
+    return String(new Date().getFullYear());
+  }, [matches]);
+
+  const [activeTab, setActiveTab] = useState("schedule");
   const [rankingSubTab, setRankingSubTab] = useState("league");
-  const [filterYear, setFilterYear] = useState("2026"); // 기본값을 2026으로 설정
+
+  // 🟢 2. 기본값을 "All"(전체 연도)로 변경했습니다!
+  const [filterYear, setFilterYear] = useState("All");
   const [filterOpponent, setFilterOpponent] = useState("All");
   const [filterType, setFilterType] = useState("All");
-
-  useEffect(() => {
-    if (location.state) {
-      if (location.state.targetTab) {
-        setActiveTab(location.state.targetTab); // 'rankings' 탭으로 전환
-      }
-      if (location.state.targetSubTab) {
-        setRankingSubTab(location.state.targetSubTab); // 'league' 또는 'player' 탭으로 전환
-      }
-
-      // 편지를 읽었으니 주소창 기록에서 편지를 지움 (새로고침 시 방지)
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
-
-  // 🔴 [추가] 어떤 기준으로(key), 어떤 방향으로(direction) 정렬할지 기억하는 상태
   const [sortConfig, setSortConfig] = useState({
     key: "points",
     direction: "desc",
   });
 
-  // 🔴 [추가] 표의 헤더를 클릭했을 때 실행되는 정렬 함수
-  const requestSort = (key) => {
-    let direction = "desc"; // 기본은 높은 순(내림차순)
-    // 이미 누른 버튼을 또 누르면 오름차순/내림차순 반전
-    if (sortConfig.key === key && sortConfig.direction === "desc") {
-      direction = "asc";
+  useEffect(() => {
+    if (location.state) {
+      if (location.state.targetTab) setActiveTab(location.state.targetTab);
+      if (location.state.targetSubTab)
+        setRankingSubTab(location.state.targetSubTab);
+      window.history.replaceState({}, document.title);
     }
+  }, [location.state]);
+
+  const requestSort = (key) => {
+    let direction = "desc";
+    if (sortConfig.key === key && sortConfig.direction === "desc")
+      direction = "asc";
     setSortConfig({ key, direction });
   };
 
-  // 탭 변경 시 '순위·기록' 탭에서 "All"이 선택되어 있다면 최신 연도로 강제 변경
+  // 🟢 3. 탭 변경 시, 일정 탭에서는 "All"을 유지하고, 순위 탭에 들어갈 때만 최신 연도로 맞춰줍니다.
   useEffect(() => {
-    if (filterYear === "All") {
-      setFilterYear("2026");
+    if (activeTab === "rankings" && filterYear === "All") {
+      setFilterYear(latestYear);
     }
-  }, [activeTab, filterYear]);
+  }, [activeTab, filterYear, latestYear]);
 
-  // 2. 공통 데이터 가공
+  // 공통 데이터 가공
   const allYears = useMemo(
     () =>
       [...new Set(matches.map((m) => m.year.toString()))].sort((a, b) => b - a),
     [matches],
   );
-
   const opponents = useMemo(
     () => [...new Set(matches.map((m) => m.opponent))].sort(),
     [matches],
@@ -86,7 +83,7 @@ const MatchSchedule = ({ onMatchClick }) => {
     [matches],
   );
 
-  // 3. 일정/결과 필터링
+  // 일정/결과 필터링
   const filteredMatches = useMemo(() => {
     return matches
       .filter((m) => filterYear === "All" || m.year.toString() === filterYear)
@@ -97,33 +94,26 @@ const MatchSchedule = ({ onMatchClick }) => {
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [matches, filterYear, filterOpponent, filterType]);
 
-  // 4. 🔥 [선수 순위] 숫자형 year 타입에 맞춘 최적화 로직 + 동적 정렬 적용
   const playerRankings = useMemo(() => {
     const isAll =
       String(filterYear).toUpperCase() === "ALL" || filterYear === "전체";
-    // Dashboard와 연도 로직 통일
-    const targetY = isAll
-      ? Math.max(...matches.map((m) => Number(m.year)))
-      : Number(filterYear);
+    const targetY = isAll ? Number(latestYear) : Number(filterYear); // 🟢 2026 하드코딩 제거
 
     const baseRankings = calculatePlayerRankings(match_logs, players, targetY);
 
-    // 사용자가 선택한 정렬 기준(sortConfig) 적용
     return [...baseRankings].sort((a, b) => {
       const { key, direction } = sortConfig;
       const modifier = direction === "asc" ? 1 : -1;
 
       if (a[key] < b[key]) return -1 * modifier;
       if (a[key] > b[key]) return 1 * modifier;
-
-      // 동점자 처리 로직 (공통 정렬 기준 재적용)
       return b.points - a.points || b.goals - a.goals;
     });
-  }, [match_logs, players, filterYear, sortConfig, matches]);
+  }, [match_logs, players, filterYear, sortConfig, latestYear]);
 
-  // 5. TOP 1 데이터 (캐러셀용)
   const topStats = useMemo(
     () => [
+      /* 기존 배열 유지 */
       {
         label: "최다 득점",
         key: "goals",
@@ -160,14 +150,12 @@ const MatchSchedule = ({ onMatchClick }) => {
     [],
   );
 
-  // 6. 리그 순위 가공 (무적의 연도 필터링)
+  // 리그 순위 가공
   const sortedLeague = useMemo(() => {
-    // 🔥 'ALL', 'All', '전체' 등 필터값이 어떻게 들어오든 무조건 기본 연도로 치환합니다.
     const isAll = filterYear.toUpperCase() === "ALL" || filterYear === "전체";
-    const targetY = isAll ? "2026" : String(filterYear);
+    const targetY = isAll ? latestYear : String(filterYear); // 🟢 2026 하드코딩 제거
 
     const teams = new Set(["숭실대"]);
-
     matches.forEach((m) => {
       const mYear = m.year
         ? String(m.year)
@@ -182,8 +170,7 @@ const MatchSchedule = ({ onMatchClick }) => {
     const combined = Array.from(teams).map((tName) => {
       const dbRecord =
         league.find((t) => {
-          // DB에 연도 값이 없는 옛날 데이터면 무조건 '2026'으로 간주
-          const dbYear = t.year ? String(t.year) : "2026";
+          const dbYear = t.year ? String(t.year) : latestYear; // 🟢 2026 하드코딩 제거
           return t.team?.trim() === tName && dbYear === targetY;
         }) || {};
 
@@ -206,7 +193,7 @@ const MatchSchedule = ({ onMatchClick }) => {
     return combined
       .sort((a, b) => (b.pts !== a.pts ? b.pts - a.pts : b.gd - a.gd))
       .map((t, i) => ({ ...t, rank: i + 1 }));
-  }, [matches, league, filterYear]);
+  }, [matches, league, filterYear, latestYear]);
 
   return (
     <div className="animate-fade-in pb-20 max-w-6xl mx-auto">

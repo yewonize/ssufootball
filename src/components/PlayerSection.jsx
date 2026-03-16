@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Routes, Route, useNavigate, useParams } from "react-router-dom"; // 🔥 라우팅 훅 추가
+import { Routes, Route, useNavigate, useParams } from "react-router-dom";
 import {
   ChevronLeft,
   User,
@@ -15,21 +15,27 @@ import {
   Clock,
   Calendar,
 } from "lucide-react";
-import { query, collection, where, getDocs } from "firebase/firestore";
+import { useData } from "../contexts/DataContext";
 
 // ==============================================================================
-// 1. 선수 상세 페이지 컴포넌트 (Router로 분리됨)
+// 1. 선수 상세 페이지 컴포넌트
 // ==============================================================================
-const PlayerDetail = ({
-  players,
-  matches = [],
-  onUpdatePlayer,
-  db,
-  match_logs = [],
-}) => {
+const PlayerDetail = () => {
+  const navigate = useNavigate();
   const { id } = useParams();
-  const player = players.find((p) => p.id === id);
 
+  // 🔥 전역 보관소에서 데이터와 수정 함수 가져오기
+  const { players, matches, matchLogs: match_logs, onUpdatePlayer } = useData();
+
+  // 1-1. 상태 관리 (에러 원인 해결)
+  const [activeLogYear, setActiveLogYear] = useState(null);
+  const [commentInput, setCommentInput] = useState("");
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+  // 현재 선수 찾기
+  const player = useMemo(() => players.find((p) => p.id === id), [players, id]);
+
+  // 선수 개인 기록 필터링
   const playerLogs = useMemo(() => {
     if (!player?.name || !match_logs) return [];
     return match_logs
@@ -37,7 +43,8 @@ const PlayerDetail = ({
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [player?.name, match_logs]);
 
-  const isLoadingLogs = false;
+  // 1-2. 함수 정의
+  const handleGoBack = () => navigate("/players");
 
   const handleLike = async () => {
     if (!player) return;
@@ -82,9 +89,11 @@ const PlayerDetail = ({
     });
   }, [playerLogs, matches]);
 
-  const uniqueYears = [...new Set(enrichedLogs.map((l) => l.year))]
-    .sort()
-    .reverse();
+  const uniqueYears = useMemo(
+    () => [...new Set(enrichedLogs.map((l) => l.year))].sort().reverse(),
+    [enrichedLogs],
+  );
+
   const displayTournaments = [
     "U리그",
     "왕중왕전",
@@ -111,7 +120,7 @@ const PlayerDetail = ({
     0,
   );
 
-  // 연도 초기값 세팅
+  // 연도 초기값 세팅 (에러 방지용 useEffect)
   useEffect(() => {
     if (uniqueYears.length > 0 && !activeLogYear) {
       setActiveLogYear(uniqueYears[0]);
@@ -246,13 +255,13 @@ const PlayerDetail = ({
               ) : (
                 <>
                   <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center">
-                    <p className="text-4xl font-black text-ssu-black">
+                    <p className="text-4xl font-black text-ssu-dark">
                       {careerTotalGoals}
                       <span className="text-lg text-gray-500 ml-1">골</span>
                     </p>
                   </div>
                   <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center">
-                    <p className="text-4xl font-black text-green-600">
+                    <p className="text-4xl font-black text-ssu-blue">
                       {careerTotalAssists}
                       <span className="text-lg text-gray-500 ml-1">도움</span>
                     </p>
@@ -617,10 +626,12 @@ const PlayerDetail = ({
 // ==============================================================================
 // 2. 메인 선수 목록 리스트 컴포넌트
 // ==============================================================================
-const PlayerList = ({ players }) => {
-  const navigate = useNavigate(); // 🔥 상세 페이지 이동을 위한 Router Hook
+const PlayerList = () => {
+  const navigate = useNavigate();
+  const { players } = useData(); // 🔥 전역 데이터 사용
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [mainTab, setMainTab] = useState("CURRENT"); // 'CURRENT' | 'ALUMNI'
+  const [mainTab, setMainTab] = useState("CURRENT");
   const [activePosTab, setActivePosTab] = useState("ALL");
 
   const visiblePlayers = useMemo(() => {
@@ -890,28 +901,11 @@ const PlayerList = ({ players }) => {
 // ==============================================================================
 // 3. 최상위 라우터 연결 컴포넌트
 // ==============================================================================
-const PlayerSection = ({
-  players,
-  matches = [],
-  onUpdatePlayer,
-  db,
-  match_logs = [],
-}) => {
+const PlayerSection = () => {
   return (
     <Routes>
-      <Route path="/" element={<PlayerList players={players} />} />
-      <Route
-        path="/:id"
-        element={
-          <PlayerDetail
-            players={players}
-            matches={matches}
-            onUpdatePlayer={onUpdatePlayer}
-            db={db}
-            match_logs={match_logs}
-          />
-        }
-      />
+      <Route path="/" element={<PlayerList />} />
+      <Route path="/:id" element={<PlayerDetail />} />
     </Routes>
   );
 };
