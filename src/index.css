@@ -23,7 +23,7 @@ body {
 
   /* 📦 숭실대 표준 카드 */
   .ssu-card {
-    @apply bg-white rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden transition-all;
+    @apply bg-white rounded-4xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden transition-all;
   }
 
   /* 텍스트 시스템 */

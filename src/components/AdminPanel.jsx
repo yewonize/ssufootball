@@ -59,7 +59,7 @@ const AdminPanel = ({ toggleAdmin }) => {
   );
   const [activeSubTab, setActiveSubTab] = useState("matches");
 
-  const ADMIN_PASSWORD = "ssu1234";
+  const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 
   // ============ 1. 리그 순위용 상태 ============
   const [leagueYear, setLeagueYear] = useState("2026");

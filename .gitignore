@@ -67,3 +67,10 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# 로컬 환경 변수 파일 제외
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
