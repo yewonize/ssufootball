@@ -1,9 +1,7 @@
+/* src/index.css */
 @import "tailwindcss";
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
 
-/* =======================================================
-   2. Tailwind v4 테마 설정 (숭실대 브랜드 컬러)
-======================================================= */
 @theme {
   --color-ssu-light: #60c1c3;
   --color-ssu-blue: #009bcb;
@@ -11,130 +9,52 @@
   --color-ssu-black: #001d3d;
 }
 
-/* =======================================================
-   3. 기본 태그 스타일 (폰트 및 터치 하이라이트 제거)
-======================================================= */
 body {
-  font-family:
-    "Pretendard",
-    -apple-system,
-    BlinkMacSystemFont,
-    system-ui,
-    Roboto,
-    "Helvetica Neue",
-    "Segoe UI",
-    "Apple SD Gothic Neo",
-    "Noto Sans KR",
-    "Malgun Gothic",
-    sans-serif;
-  background-color: #f9fafb;
+  font-family: "Pretendard", sans-serif;
+  @apply bg-slate-50 text-slate-900 antialiased tracking-tight;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* =======================================================
-   4. 커스텀 스크롤바 & 애니메이션 키프레임 정의
-======================================================= */
-@layer utilities {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: #d1d5db;
-    border-radius: 10px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: #9ca3af;
-  }
-}
-
-/* 🔥 키프레임을 전역으로 빼서 어디서든 쓸 수 있게 변경 */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* =======================================================
-   5. 컴포넌트 추상화 (HTML을 깔끔하게 만드는 곳)
-======================================================= */
 @layer components {
-  /* 🏆 모달 공통 레이아웃 */
-  .modal-overlay {
-    /* 🔥 에러 원인 해결: animate-fade-in을 @apply에서 빼고 아래쪽 animation 속성으로 직접 적용! */
-    @apply fixed inset-0 z-100 flex items-center justify-center bg-ssu-black/50 backdrop-blur-sm p-4 sm:p-6;
-    animation: fadeIn 0.4s ease-out forwards;
-  }
-  .modal-container {
-    @apply bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative;
-  }
-  .modal-hero {
-    @apply relative bg-ssu-black text-white pt-10 pb-8 px-6 shrink-0 border-b-4 border-[#FFD60A] overflow-hidden;
-  }
-  .modal-card {
-    @apply bg-white border border-gray-200 rounded-3xl p-6 shadow-sm flex flex-col;
+  /* 🏠 페이지 공통 컨테이너 */
+  .page-layout {
+    @apply flex-1 w-full max-w-7xl mx-auto px-5 md:px-8 py-6 md:py-10;
   }
 
-  /* 🔘 탭 버튼 */
-  .tab-btn-active {
-    @apply flex-1 py-4 text-xs md:text-sm font-black transition-all duration-300 border-b-[3px] text-ssu-black border-ssu-black bg-blue-50/50;
-  }
-  .tab-btn-inactive {
-    @apply flex-1 py-4 text-xs md:text-sm font-black transition-all duration-300 border-b-[3px] text-gray-400 border-transparent hover:text-ssu-black hover:bg-gray-50;
+  /* 📦 숭실대 표준 카드 */
+  .ssu-card {
+    @apply bg-white rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden transition-all;
   }
 
-  /* 🏷️ 뱃지 (선발/교체 등) */
-  .badge-ssu {
-    @apply inline-block px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase bg-ssu-black text-[#FFD60A] border border-ssu-black;
-  }
-  .badge-outline {
-    @apply inline-block px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase bg-white text-gray-500 border border-gray-200;
+  /* 텍스트 시스템 */
+  .section-title {
+    @apply text-xl md:text-3xl font-black text-ssu-black flex items-center gap-2;
   }
 
-  /* 🎬 미디어 버튼 공통 (유튜브, 리뷰, 인터뷰) */
-  .media-btn {
-    @apply flex items-center justify-between bg-white text-gray-800 p-5 rounded-2xl font-bold border border-gray-200 shadow-sm hover:shadow-md transition-all;
+  /* 📱 모달/히어로 배너용 모바일 풀너비 마진 상쇄 */
+  .full-width-mobile {
+    @apply -mx-5 md:mx-0 -mt-6 md:mt-0;
   }
 
-  /* 기존 대시보드 & 관리자 페이지 클래스들 */
-  .admin-panel-card {
-    @apply bg-white p-5 md:p-6 rounded-2xl border border-gray-200 shadow-sm;
-  }
-  .dashboard-card {
-    @apply bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm flex flex-col;
-  }
-  .btn-admin-primary {
-    @apply w-full bg-ssu-black text-[#FFD60A] py-3.5 md:py-4 rounded-xl font-black hover:bg-black transition-all shadow-md flex items-center justify-center gap-2;
-  }
-  .btn-admin-secondary {
-    @apply bg-gray-100 text-gray-600 font-bold px-6 py-2.5 rounded-lg text-sm hover:bg-gray-200 transition-colors shadow-sm;
-  }
-  .table-header {
-    @apply bg-gray-50 text-gray-400 font-black border-b border-gray-100 uppercase tracking-tighter;
-  }
-  .input-base {
-    @apply w-full p-2.5 border border-gray-300 rounded-lg text-sm font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all bg-white;
-  }
-  /* 🏆 모달 헤더 - 숭실대 블루 (#009BCB) 적용 */
-  .modal-hero-bright {
-    @apply relative bg-ssu-blue text-white pt-10 pb-8 px-6 shrink-0 border-b-4 border-[#FFD60A] overflow-hidden;
+  /* 공통 버튼 */
+  .btn-primary {
+    @apply bg-ssu-black text-[#FFD60A] px-6 py-3 rounded-2xl font-black text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-md;
   }
 
-  /* 🔘 밝은 버전의 카드 */
-  .modal-card-white {
-    @apply bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col;
+  /* src/index.css @layer components 내부에 추가 */
+  .studio-layout {
+    @apply flex min-h-screen bg-slate-50 -mx-5 -mt-6 md:-mx-8 md:-mt-10;
   }
-
-  /* 🏷️ 파란색 포인트 뱃지 */
-  .badge-ssu-blue {
-    @apply inline-block px-3 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase bg-blue-50 text-ssu-blue border border-blue-200;
+  .studio-sidebar {
+    @apply w-64 bg-ssu-black text-white shrink-0 sticky top-0 h-screen hidden md:flex flex-col border-r border-white/5;
+  }
+  .studio-nav-item {
+    @apply flex items-center gap-3 px-6 py-4 text-sm font-black transition-all border-l-4 border-transparent hover:bg-white/5 hover:text-ssu-blue;
+  }
+  .studio-nav-active {
+    @apply bg-ssu-blue/10 text-ssu-blue border-ssu-blue;
+  }
+  .studio-main {
+    @apply flex-1 p-6 md:p-10 overflow-y-auto max-w-full;
   }
 }

@@ -138,8 +138,8 @@ const Dashboard = ({ setActiveTab }) => {
       {/* 🟢 1. Hero Section (기존 유지) */}
       {/* 🔥 1. Hero Section (브랜드 그라디언트 적용) */}
 
-      <section className="relative -mx-4 md:mx-0 md:rounded-4xl overflow-hidden">
-        <div className="bg-linear-to-br from-ssu-light via-ssu-blue to-ssu-dark px-6 py-12 md:py-20 text-white relative">
+      <section className="relative -mx-5 md:mx-0 -mt-6 md:mt-0 md:rounded-[2.5rem] overflow-hidden shadow-lg">
+        <div className="bg-linear-to-br from-ssu-light via-ssu-blue to-ssu-dark px-6 py-12 md:py-24 text-white relative">
           <div className="relative z-10 max-w-4xl">
             <span className="inline-block px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-[10px] md:text-xs font-black tracking-widest mb-4">
               SOONGSIL UNIVERSITY FOOTBALL TEAM
