@@ -1,22 +1,63 @@
 export const parseScorers = (scorerData) => {
   if (!scorerData || scorerData === "-") return [];
-  if (Array.isArray(scorerData))
-    return scorerData.map((s) =>
-      typeof s === "object" && s.name
-        ? { name: s.name, goals: s.goals || s.count || 1 }
-        : { name: String(s), goals: 1 },
-    );
-  const scorers = [];
-  if (typeof scorerData !== "string") return [];
-  const parts = scorerData.split(",").map((s) => s.trim());
-  for (const part of parts) {
-    const match = part.match(/^(.+?)\((\d+)\)$/);
-    if (match)
-      scorers.push({ name: match[1].trim(), goals: parseInt(match[2]) });
-    else if (part && part !== "-")
-      scorers.push({ name: part.trim(), goals: 1 });
+
+  const normalized = [];
+
+  // 1) 입력 형태를 먼저 통일
+  if (Array.isArray(scorerData)) {
+    for (const s of scorerData) {
+      if (typeof s === "object" && s?.name) {
+        normalized.push({
+          name: String(s.name).trim(),
+          goals: Number(s.goals ?? s.count ?? 1) || 1,
+        });
+      } else if (s != null) {
+        normalized.push({
+          name: String(s).trim(),
+          goals: 1,
+        });
+      }
+    }
+  } else if (typeof scorerData === "string") {
+    const parts = scorerData.split(",").map((s) => s.trim());
+
+    for (const part of parts) {
+      const match = part.match(/^(.+?)\((\d+)\)$/);
+
+      if (match) {
+        normalized.push({
+          name: match[1].trim(),
+          goals: parseInt(match[2], 10),
+        });
+      } else if (part && part !== "-") {
+        normalized.push({
+          name: part.trim(),
+          goals: 1,
+        });
+      }
+    }
+  } else {
+    return [];
   }
-  return scorers;
+
+  // 2) 같은 이름 병합
+  const merged = new Map();
+
+  for (const scorer of normalized) {
+    const key = scorer.name;
+    if (!key) continue;
+
+    if (!merged.has(key)) {
+      merged.set(key, {
+        name: key,
+        goals: 0,
+      });
+    }
+
+    merged.get(key).goals += Number(scorer.goals) || 0;
+  }
+
+  return [...merged.values()];
 };
 
 export const parseAssists = (assistData) => {
@@ -52,7 +93,6 @@ export const compressImageToBase64 = (file) => {
   });
 };
 
-// utils.js 또는 별도의 로직 파일
 export const calculatePlayerRankings = (match_logs, players, targetYear) => {
   if (!match_logs || !match_logs.length) return [];
 

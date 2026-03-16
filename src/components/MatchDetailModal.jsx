@@ -33,14 +33,30 @@ import { parseScorers, parseAssists } from "../utils";
 const MatchDetailModal = ({
   match,
   onClose,
-  allMatches = [],
+  allMatches,
+  isAdmin,
+  onUpdateMatch,
   db,
   players = [],
-  match_logs = [],
+  match_logs = [], // 🔥 파라미터에 match_logs 꼭 추가!
 }) => {
-  const currentcurrentMatchLogs = useMemo(() => {
-    return match_logs.filter((log) => log.matchId === match.id);
-  }, [match.id, match_logs]);
+  // 🔥 1. 서버에서 가져오는 대신 props로 받은 match_logs를 필터링
+  const currentMatchLogs = useMemo(() => {
+    if (!match?.id || !match_logs) return [];
+    return match_logs.filter(
+      (log) => (log.matchId || log.match_id) === match.id,
+    );
+  }, [match?.id, match_logs]);
+
+  // 🔥 2. 기존 코드들이 에러 나지 않도록 matchLogs 변수에 연결
+  const matchLogs = currentMatchLogs;
+  const isLoadingLogs = false; // 더 이상 서버 통신 안 하므로 항상 false
+
+  const [showRecordForm, setShowRecordForm] = useState(false);
+  const [recordScore, setRecordScore] = useState({
+    home: match?.homeScore || 0,
+    away: match?.awayScore || 0,
+  });
   const [recordPso, setRecordPso] = useState(match?.pso || "");
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editInfo, setEditInfo] = useState({

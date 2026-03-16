@@ -30,14 +30,14 @@ const PlayerDetail = ({
   const { id } = useParams();
   const player = players.find((p) => p.id === id);
 
-  // 🔴 삭제: useEffect (fetchPlayerLogs 관련 로직 전체)
-  // 🟢 추가: props로 받은 match_logs에서 해당 선수 이름으로 필터링
   const playerLogs = useMemo(() => {
-    if (!player?.name) return [];
+    if (!player?.name || !match_logs) return [];
     return match_logs
       .filter((log) => log.name === player.name)
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [player?.name, match_logs]);
+
+  const isLoadingLogs = false;
 
   const handleLike = async () => {
     if (!player) return;
@@ -890,9 +890,14 @@ const PlayerList = ({ players }) => {
 // ==============================================================================
 // 3. 최상위 라우터 연결 컴포넌트
 // ==============================================================================
-const PlayerSection = ({ players, matches = [], onUpdatePlayer, db }) => {
+const PlayerSection = ({
+  players,
+  matches = [],
+  onUpdatePlayer,
+  db,
+  match_logs = [],
+}) => {
   return (
-    // 🔥 App.jsx에서 넘어온 /players 하위 경로를 여기서 분기 처리합니다.
     <Routes>
       <Route path="/" element={<PlayerList players={players} />} />
       <Route
@@ -903,6 +908,7 @@ const PlayerSection = ({ players, matches = [], onUpdatePlayer, db }) => {
             matches={matches}
             onUpdatePlayer={onUpdatePlayer}
             db={db}
+            match_logs={match_logs}
           />
         }
       />

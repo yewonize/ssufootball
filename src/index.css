@@ -69,3 +69,35 @@ body {
     }
   }
 }
+
+/* src/index.css 파일 맨 아래 추가 */
+
+@layer components {
+  /* 📦 공통 컨테이너/카드 스타일 */
+  .admin-panel-card {
+    @apply bg-white p-5 md:p-6 rounded-2xl border border-gray-200 shadow-sm;
+  }
+
+  .dashboard-card {
+    @apply bg-white rounded-4xl border border-gray-100 overflow-hidden shadow-sm flex flex-col;
+  }
+
+  /* 🔘 공통 버튼 스타일 */
+  .btn-admin-primary {
+    @apply w-full bg-ssu-black text-[#FFD60A] py-3.5 md:py-4 rounded-xl font-black hover:bg-black transition-all shadow-md flex items-center justify-center gap-2;
+  }
+
+  .btn-admin-secondary {
+    @apply bg-gray-100 text-gray-600 font-bold px-6 py-2.5 rounded-lg text-sm hover:bg-gray-200 transition-colors shadow-sm;
+  }
+
+  /* 📊 테이블 스타일 */
+  .table-header {
+    @apply bg-gray-50 text-gray-400 font-black border-b border-gray-100 uppercase tracking-tighter;
+  }
+
+  /* 🏷️ 입력창(Input/Select) 스타일 */
+  .input-base {
+    @apply w-full p-2.5 border border-gray-300 rounded-lg text-sm font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all bg-white;
+  }
+}

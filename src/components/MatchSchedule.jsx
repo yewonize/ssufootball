@@ -14,15 +14,13 @@ import {
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { calculatePlayerRankings } from "../utils";
+import { useData } from "../contexts/DataContext";
 
-const MatchSchedule = ({
-  matches = [],
-  players = [],
-  league = [],
-  match_logs = [],
-  onMatchClick,
-}) => {
+const MatchSchedule = ({ onMatchClick }) => {
   const location = useLocation();
+
+  // 🔥 전역 보관소에서 꺼내기
+  const { matches, players, league, matchLogs: match_logs } = useData();
   // 1. 상태 관리
   const [activeTab, setActiveTab] = useState("schedule"); // 'schedule' | 'rankings'
   const [rankingSubTab, setRankingSubTab] = useState("league");

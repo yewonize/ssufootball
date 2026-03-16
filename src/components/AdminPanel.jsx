@@ -36,20 +36,22 @@ import {
   doc,
   where,
 } from "firebase/firestore";
+import { increment } from "firebase/firestore";
+import { useData } from "../contexts/DataContext";
 
-const AdminPanel = ({
-  matches,
-  players,
-  league,
-  onUpdateMatch,
-  onAddMatch,
-  onDeleteMatch,
-  onUpdatePlayer,
-  onUpdateLeagueTeam,
-  onAddLeagueTeam,
-  toggleAdmin,
-  db,
-}) => {
+const AdminPanel = ({ toggleAdmin }) => {
+  const {
+    matches,
+    players,
+    league,
+    db,
+    handleAddLeagueTeam: onAddLeagueTeam,
+    handleUpdateLeagueTeam: onUpdateLeagueTeam,
+    handleAddMatch: onAddMatch,
+    handleUpdateMatch: onUpdateMatch,
+    handleDeleteMatch: onDeleteMatch,
+    handleUpdatePlayer: onUpdatePlayer,
+  } = useData();
   const [password, setPassword] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(
     () => sessionStorage.getItem("ssuAdmin") === "true",
@@ -146,63 +148,69 @@ const AdminPanel = ({
     [matches],
   );
 
-  // ============ 🔥 [리그 순위] 연도 분리 및 로컬 상태 관리 ============
-  useEffect(() => {
-    // 1. 선택된 연도의 U리그 참가팀 추출 (날짜에서 연도를 강제로 뽑아내는 방어적 코드 추가)
-    const teams = new Set(["숭실대"]);
+  // ============ 🔥 [리그 순위] 최적화된 연도 분리 로직 ============
 
+  // 1. 선택된 연도의 U리그 참가팀 목록을 먼저 추출 (matches가 바뀔 때만 실행)
+  const targetTeams = useMemo(() => {
+    const teams = new Set(["숭실대"]);
     matches.forEach((m) => {
-      // m.year가 없으면 m.date("2026-03-12")에서 앞의 4자리 연도를 잘라옵니다.
       const matchYear = m.year
         ? String(m.year)
         : m.date
           ? m.date.split("-")[0]
           : "";
-
       if (
-        m.type &&
-        m.type.includes("U리그") &&
+        m.type?.includes("U리그") &&
         matchYear === String(leagueYear) &&
         m.opponent
       ) {
-        teams.add(m.opponent);
+        teams.add(m.opponent.trim());
       }
     });
+    return Array.from(teams);
+  }, [matches, leagueYear]);
 
-    // 2. 추출된 팀을 바탕으로 DB에서 해당 연도의 기록을 찾음
-    const combined = Array.from(teams).map((teamName) => {
-      const dbRecord =
-        league.find(
-          (t) => t.team === teamName && String(t.year) === String(leagueYear),
-        ) || {};
+  // 2. 추출된 팀 리스트와 DB 기록 매칭 (Map을 활용하여 검색 속도 극대화)
+  useEffect(() => {
+    // 현재 연도에 해당하는 DB 기록만 모아 Map 생성 (조회 성능 최적화)
+    const currentLeagueRecords = league.filter(
+      (t) => String(t.year) === String(leagueYear),
+    );
+    const leagueMap = new Map(
+      currentLeagueRecords.map((record) => [record.team?.trim(), record]),
+    );
+
+    const table = targetTeams.map((teamName) => {
+      const dbRecord = leagueMap.get(teamName) || {};
+
+      const w = Number(dbRecord.w) || 0;
+      const d = Number(dbRecord.d) || 0;
+      const l = Number(dbRecord.l) || 0;
+      const gd = Number(dbRecord.gd) || 0;
+
       return {
         id: dbRecord.id || null,
         team: teamName,
         year: leagueYear,
-        w: Number(dbRecord.w) || 0,
-        d: Number(dbRecord.d) || 0,
-        l: Number(dbRecord.l) || 0,
-        gd: Number(dbRecord.gd) || 0,
+        w,
+        d,
+        l,
+        gd,
+        played: w + d + l,
+        pts: w * 3 + d * 1,
       };
     });
 
-    // 3. 승점 및 경기수 계산 후 정렬하여 로컬 상태(화면)에 저장
-    const sorted = combined
+    // 정렬 로직
+    const sorted = table
       .sort((a, b) => {
-        const ptsA = a.w * 3 + a.d * 1;
-        const ptsB = b.w * 3 + b.d * 1;
-        if (ptsA !== ptsB) return ptsB - ptsA;
+        if (a.pts !== b.pts) return b.pts - a.pts;
         return b.gd - a.gd;
       })
-      .map((t, idx) => ({
-        ...t,
-        rank: idx + 1,
-        played: t.w + t.d + t.l,
-        pts: t.w * 3 + t.d * 1,
-      }));
+      .map((t, idx) => ({ ...t, rank: idx + 1 }));
 
     setLeagueTable(sorted);
-  }, [matches, league, leagueYear]);
+  }, [targetTeams, league, leagueYear]);
 
   // 4. 표 안에서 숫자 변경 시 화면의 숫자만 먼저 바꿈 (타이핑 버벅임 방지)
   const handleLeagueStatChange = (index, field, value) => {
@@ -371,56 +379,6 @@ const AdminPanel = ({
       setManagingCommentsPlayer((prev) => ({ ...prev, comments: newComments }));
     } catch (e) {
       alert("댓글 삭제 실패");
-    }
-  };
-
-  const handleSyncPlayersFromLogs = async () => {
-    if (!window.confirm("DB의 경기 기록을 스캔하여 누락된 선수를 등록합니다."))
-      return;
-    try {
-      const logsSnap = await getDocs(collection(db, "match_logs"));
-      const logNames = new Set();
-      logsSnap.docs.forEach((d) => {
-        if (d.data().name) logNames.add(d.data().name.trim());
-      });
-      const existingNames = new Set(players.map((p) => p.name.trim()));
-      const missingNames = [...logNames].filter(
-        (name) => !existingNames.has(name) && name !== "-" && name !== "",
-      );
-      if (missingNames.length === 0) return alert("누락된 선수가 없습니다.");
-      if (
-        !window.confirm(
-          `총 ${missingNames.length}명 추가 대상: ${missingNames.join(", ")}\n등록할까요?`,
-        )
-      )
-        return;
-      const batch = writeBatch(db);
-      missingNames.forEach((name) => {
-        batch.set(doc(collection(db, "players")), {
-          name,
-          position: "MF",
-          number: 99,
-          grade: 1,
-          likes: 0,
-          status: "current",
-          isHidden: false,
-          comments: [],
-          profile: {
-            birthday: "",
-            height: 0,
-            weight: 0,
-            highSchool: "",
-            mbti: "",
-            photo: "",
-            currentTeam: "",
-          },
-        });
-      });
-      await batch.commit();
-      alert("성공!");
-      window.location.reload();
-    } catch (error) {
-      alert("오류: " + error.message);
     }
   };
 
@@ -739,6 +697,20 @@ const AdminPanel = ({
     } catch (e) {
       alert("저장 실패: " + e.message);
     }
+    // 2. 해당 선수의 집계 데이터 업데이트 추가
+    const playerRef = doc(db, "players", playerId);
+    const yr = String(loggingMatch.date.split("-")[0]);
+
+    batch.update(playerRef, {
+      [`stats.total.goals`]: increment(scorer?.goals || 0),
+      [`stats.total.assists`]: increment(scorer?.assists || 0),
+      [`stats.total.apps`]: increment(1),
+      [`stats.total.mins`]: increment(minutes),
+      [`stats.years.${yr}.goals`]: increment(scorer?.goals || 0),
+      [`stats.years.${yr}.assists`]: increment(scorer?.assists || 0),
+      [`stats.years.${yr}.apps`]: increment(1),
+      [`stats.years.${yr}.mins`]: increment(minutes),
+    });
   };
 
   const handleSaveSimpleEdit = async () => {
@@ -1276,12 +1248,6 @@ const AdminPanel = ({
                 <Users className="mr-2 text-blue-600" /> 선수단 관리
               </h3>
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                <button
-                  onClick={handleSyncPlayersFromLogs}
-                  className="bg-red-50 text-red-600 border border-red-200 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-600 hover:text-white transition flex items-center"
-                >
-                  <RefreshCw size={16} className="mr-1.5" /> 동기화
-                </button>
                 <div className="relative flex-1 md:w-48">
                   <Search
                     size={16}

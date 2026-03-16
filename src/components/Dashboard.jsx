@@ -14,17 +14,23 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { calculatePlayerRankings } from "../utils";
+import { useData } from "../contexts/DataContext";
 
-const Dashboard = ({
-  matches = [],
-  league = [],
-  setActiveTab,
-  match_logs = [],
-  players = [],
-}) => {
+const Dashboard = ({ setActiveTab }) => {
   const navigate = useNavigate();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [standingsTab, setStandingsTab] = useState("league");
+
+  // 🔥 이제 데이터를 전역 보관소에서 알아서 쏙 빼옵니다!
+  const { matches, league, matchLogs: match_logs, players } = useData();
+
+  // 🔴 1. 가장 먼저 'currentYear'를 선언해야 아래쪽에서 쓸 수 있습니다!
+  const currentYear = useMemo(() => {
+    if (matches.length > 0) {
+      return Math.max(...matches.map((m) => Number(m.year)));
+    }
+    return new Date().getFullYear();
+  }, [matches]);
 
   // --- 데이터 가공 ---
   const calendarData = useMemo(() => {
@@ -113,14 +119,6 @@ const Dashboard = ({
       })
       .map((t, idx) => ({ ...t, rank: idx + 1 }));
   }, [uLeagueTeams, league]);
-
-  // 🔥 동적 연도 설정 (현재 연도 혹은 데이터 상의 최신 연도)
-  const currentYear = useMemo(() => {
-    if (matches.length > 0) {
-      return Math.max(...matches.map((m) => Number(m.year)));
-    }
-    return new Date().getFullYear();
-  }, [matches]);
 
   // 🔥 공통 함수 사용하여 상위 5명 추출
   const topPlayers = useMemo(() => {
@@ -422,7 +420,7 @@ const Dashboard = ({
           <div className="grid grid-cols-7 gap-1 md:gap-2 text-center mb-4">
             {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
               <div
-                key={d}
+                key={i}
                 className={`text-[10px] md:text-xs font-black py-1 ${i === 0 ? "text-red-400" : i === 6 ? "text-ssu-blue" : "text-gray-300"}`}
               >
                 {d}
