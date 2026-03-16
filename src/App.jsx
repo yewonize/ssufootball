@@ -46,6 +46,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// 2. 그 다음에 만들어진 db를 가지고 오프라인 캐시를 켭니다!
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === "failed-precondition") {
+    // 여러 탭이 열려있을 때
+  } else if (err.code === "unimplemented") {
+    // 브라우저가 지원하지 않을 때
+  }
+});
+
 const App = () => {
   // 🔥 라우팅을 위한 네비게이션 훅
   const navigate = useNavigate();
@@ -327,6 +336,7 @@ const App = () => {
               players={players}
               matches={matches}
               isAdmin={isAdmin}
+              match_logs={matchLogs}
               onAddPlayer={handleAddPlayer}
               onUpdatePlayer={handleUpdatePlayer}
               db={db}
@@ -359,6 +369,7 @@ const App = () => {
           match={selectedMatch}
           allMatches={matches}
           players={players}
+          match_logs={matchLogs}
           onClose={() => setSelectedMatch(null)}
           isAdmin={isAdmin}
           onUpdateMatch={handleUpdateMatch}
