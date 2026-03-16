@@ -87,34 +87,65 @@ const App = () => {
   };
 
   // 데이터 불러오기
+  // App.jsx
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
-        // 🔴 [수정 포인트] 대괄호 안에 4번째 변수 'logsSnap'을 추가했습니다!
+        // 1. 로컬 스토리지에서 먼저 확인 (개발 모드에서 특히 유용)
+        const cachedMatches = localStorage.getItem("cache_matches");
+        const cachedPlayers = localStorage.getItem("cache_players");
+        const cachedLeague = localStorage.getItem("cache_league");
+        const cachedLogs = localStorage.getItem("cache_logs");
+
+        if (cachedMatches && cachedPlayers && cachedLeague && cachedLogs) {
+          setMatches(JSON.parse(cachedMatches));
+          setPlayers(JSON.parse(cachedPlayers));
+          setLeague(JSON.parse(cachedLeague));
+          setMatchLogs(JSON.parse(cachedLogs));
+          setIsLoading(false);
+          return; // 캐시가 있으면 DB 요청 안 함!
+        }
+
+        // 2. 캐시가 없을 때만 DB에서 가져오기
         const [matchSnaps, playerSnaps, leagueSnaps, logsSnap] =
           await Promise.all([
             getDocs(collection(db, "matches")),
             getDocs(collection(db, "players")),
             getDocs(collection(db, "league")),
-            getDocs(collection(db, "match_logs")), // 이게 4번째 데이터이므로 logsSnap에 담깁니다.
+            getDocs(collection(db, "match_logs")),
           ]);
 
-        setMatches(
-          matchSnaps.docs
-            .map((d) => ({ ...d.data(), id: d.id }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date)),
-        );
-        setPlayers(playerSnaps.docs.map((d) => ({ ...d.data(), id: d.id })));
-        setLeague(leagueSnaps.docs.map((d) => ({ ...d.data(), id: d.id })));
+        const matchData = matchSnaps.docs.map((d) => ({
+          ...d.data(),
+          id: d.id,
+        }));
+        const playerData = playerSnaps.docs.map((d) => ({
+          ...d.data(),
+          id: d.id,
+        }));
+        const leagueData = leagueSnaps.docs.map((d) => ({
+          ...d.data(),
+          id: d.id,
+        }));
+        const logData = logsSnap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
-        // 이제 위에서 logsSnap을 받아왔으니 여기서 정상적으로 작동합니다!
-        setMatchLogs(
-          logsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-        );
+        // 3. 상태에 저장하고 로컬 스토리지에도 저장
+        setMatches(matchData);
+        setPlayers(playerData);
+        setLeague(leagueData);
+        setMatchLogs(logData);
+
+        localStorage.setItem("cache_matches", JSON.stringify(matchData));
+        localStorage.setItem("cache_players", JSON.stringify(playerData));
+        localStorage.setItem("cache_league", JSON.stringify(leagueData));
+        localStorage.setItem("cache_logs", JSON.stringify(logData));
       } catch (err) {
-        console.error("Data fetch error:", err);
+        console.error(err);
       } finally {
         setIsLoading(false);
       }
