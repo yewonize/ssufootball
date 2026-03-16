@@ -327,21 +327,6 @@ const MatchDetailModal = ({
     }
   };
 
-  useEffect(() => {
-    if (!match?.id) return;
-    const fetchLogs = async () => {
-      setIsLoadingLogs(true);
-      const q = query(
-        collection(db, "match_logs"),
-        where("matchId", "==", match.id),
-      );
-      const snap = await getDocs(q);
-      setcurrentMatchLogs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setIsLoadingLogs(false);
-    };
-    fetchLogs();
-  }, [match?.id, db]);
-
   if (!match) return null;
 
   return (

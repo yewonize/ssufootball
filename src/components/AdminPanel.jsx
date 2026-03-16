@@ -45,6 +45,7 @@ const AdminPanel = ({ toggleAdmin }) => {
     players,
     league,
     db,
+    matchLogs,
     handleAddLeagueTeam: onAddLeagueTeam,
     handleUpdateLeagueTeam: onUpdateLeagueTeam,
     handleAddMatch: onAddMatch,
@@ -77,7 +78,6 @@ const AdminPanel = ({ toggleAdmin }) => {
   const [csvPreview, setCsvPreview] = useState([]);
 
   const [loggingMatch, setLoggingMatch] = useState(null);
-  const [loggingMatchLogs, setLoggingMatchLogs] = useState([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [editingMom, setEditingMom] = useState(false);
 
@@ -498,29 +498,11 @@ const AdminPanel = ({ toggleAdmin }) => {
   const loggingMatchId = loggingMatch?.id;
   const loggingMatchStatus = loggingMatch?.status;
 
-  useEffect(() => {
-    if (!loggingMatchId || loggingMatchStatus !== "Finished") {
-      setLoggingMatchLogs([]);
-      setIsLoadingLogs(false);
-      return;
-    }
-    const fetchLogs = async () => {
-      setIsLoadingLogs(true);
-      try {
-        const q = query(
-          collection(db, "match_logs"),
-          where("matchId", "==", loggingMatchId),
-        );
-        const snap = await getDocs(q);
-        setLoggingMatchLogs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setIsLoadingLogs(false);
-      }
-    };
-    fetchLogs();
-  }, [loggingMatchId, loggingMatchStatus, db]);
+  const loggingMatchLogs = useMemo(() => {
+    if (!loggingMatchId || loggingMatchStatus !== "Finished" || !matchLogs)
+      return [];
+    return matchLogs.filter((log) => log.matchId === loggingMatchId);
+  }, [loggingMatchId, loggingMatchStatus, matchLogs]);
 
   const participants = useMemo(() => {
     if (!loggingMatch) return [];

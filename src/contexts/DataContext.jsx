@@ -31,20 +31,6 @@ export const DataProvider = ({ children }) => {
       try {
         setIsLoading(true);
 
-        const cachedMatches = localStorage.getItem("cache_matches");
-        const cachedPlayers = localStorage.getItem("cache_players");
-        const cachedLeague = localStorage.getItem("cache_league");
-        const cachedLogs = localStorage.getItem("cache_logs");
-
-        if (cachedMatches && cachedPlayers && cachedLeague && cachedLogs) {
-          setMatches(JSON.parse(cachedMatches));
-          setPlayers(JSON.parse(cachedPlayers));
-          setLeague(JSON.parse(cachedLeague));
-          setMatchLogs(JSON.parse(cachedLogs));
-          setIsLoading(false);
-          return;
-        }
-
         const [matchSnaps, playerSnaps, leagueSnaps, logsSnap] =
           await Promise.all([
             getDocs(collection(db, "matches")),
