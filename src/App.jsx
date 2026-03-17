@@ -5,7 +5,7 @@ import Dashboard from "./components/Dashboard";
 import MatchSchedule from "./components/MatchSchedule";
 import PlayerSection from "./components/PlayerSection";
 import MatchDetailModal from "./components/MatchDetailModal";
-const AdminPanel = lazy(() => import("./components/AdminPanel"));
+const AdminPanel = lazy(() => import("./components/admin/AdminPanel"));
 
 // 🔥 1. 방금 만든 DataProvider와 db 불러오기
 import { DataProvider, useData } from "./contexts/DataContext";

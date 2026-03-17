@@ -16,6 +16,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useData } from "../contexts/DataContext";
+// 🔥 Firebase import가 완벽하게 제거되었습니다!
 
 // ==============================================================================
 // 1. 선수 상세 페이지 컴포넌트
@@ -24,18 +25,23 @@ const PlayerDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  // 🔥 전역 보관소에서 데이터와 수정 함수 가져오기
-  const { players, matches, matchLogs: match_logs, onUpdatePlayer } = useData();
+  // 🔥 DataContext에서 DB 통신 함수들을 우아하게 가져옵니다.
+  const {
+    players,
+    matches,
+    matchLogs: match_logs,
+    handleLikePlayer,
+    handleAddPlayerComment,
+    subscribeToPlayerComments,
+  } = useData();
 
-  // 1-1. 상태 관리 (에러 원인 해결)
   const [activeLogYear, setActiveLogYear] = useState(null);
   const [commentInput, setCommentInput] = useState("");
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [realtimeComments, setRealtimeComments] = useState([]);
 
-  // 현재 선수 찾기
   const player = useMemo(() => players.find((p) => p.id === id), [players, id]);
 
-  // 선수 개인 기록 필터링
   const playerLogs = useMemo(() => {
     if (!player?.name || !match_logs) return [];
     return match_logs
@@ -43,26 +49,36 @@ const PlayerDetail = () => {
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [player?.name, match_logs]);
 
-  // 1-2. 함수 정의
   const handleGoBack = () => navigate("/players");
 
-  const handleLike = async () => {
-    if (!player) return;
-    const newLikes = (player.likes || 0) + 1;
-    await onUpdatePlayer(player.id, { likes: newLikes });
+  // 🔥 좋아요 로직: 전역 DB 함수만 호출하면 onSnapshot이 알아서 UI를 업데이트합니다.
+  const handleLike = async (playerId) => {
+    try {
+      await handleLikePlayer(playerId);
+    } catch (error) {
+      console.error("좋아요 처리 실패:", error);
+    }
   };
 
+  // 🔥 실시간 댓글 구독 로직: 전역 함수 활용
+  useEffect(() => {
+    if (!player?.id) return;
+    const unsubscribe = subscribeToPlayerComments(player.id, (data) => {
+      setRealtimeComments(data);
+    });
+    return () => unsubscribe(); // 클린업 함수
+  }, [player?.id, subscribeToPlayerComments]);
+
+  // 🔥 댓글 작성 로직
   const handleComment = async (e) => {
     e.preventDefault();
     if (!commentInput.trim() || !player) return;
-    const newC = {
-      id: Date.now(),
-      text: commentInput,
-      date: new Date().toLocaleDateString(),
-    };
-    const updated = [newC, ...(player.comments || [])];
-    await onUpdatePlayer(player.id, { comments: updated });
-    setCommentInput("");
+    try {
+      await handleAddPlayerComment(player.id, commentInput);
+      setCommentInput("");
+    } catch (error) {
+      console.error("댓글 등록 실패:", error);
+    }
   };
 
   const getStatusLabel = (status) => {
@@ -106,21 +122,21 @@ const PlayerDetail = () => {
     .toUpperCase()
     .startsWith("GK");
 
-  const careerTotalApps = enrichedLogs.length;
-  const careerTotalMins = enrichedLogs.reduce(
-    (a, c) => a + (Number(c.minutes) || 0),
-    0,
-  );
-  const careerTotalGoals = enrichedLogs.reduce(
-    (a, c) => a + (Number(c.goals) || 0),
-    0,
-  );
-  const careerTotalAssists = enrichedLogs.reduce(
-    (a, c) => a + (Number(c.assists) || 0),
-    0,
-  );
+  // 🔥 DB에 저장된 누적 스탯(player.stats)을 우선적으로 보여주고, 없으면 로그로 계산합니다.
+  const careerTotalApps = player?.stats?.total?.apps || enrichedLogs.length;
+  const careerTotalMins =
+    player?.stats?.total?.mins ||
+    enrichedLogs.reduce((a, c) => a + (Number(c.minutes) || 0), 0);
+  const careerTotalGoals =
+    player?.stats?.total?.goals ||
+    enrichedLogs.reduce((a, c) => a + (Number(c.goals) || 0), 0);
+  const careerTotalAssists =
+    player?.stats?.total?.assists ||
+    enrichedLogs.reduce((a, c) => a + (Number(c.assists) || 0), 0);
+  const careerTotalConceded =
+    player?.stats?.total?.conceded ||
+    enrichedLogs.reduce((a, c) => a + (Number(c.conceded) || 0), 0);
 
-  // 연도 초기값 세팅 (에러 방지용 useEffect)
   useEffect(() => {
     if (uniqueYears.length > 0 && !activeLogYear) {
       setActiveLogYear(uniqueYears[0]);
@@ -136,7 +152,6 @@ const PlayerDetail = () => {
 
   return (
     <div className="animate-fade-in pb-20 w-full max-w-6xl mx-auto">
-      {/* 🔥 [Router 연동] 목록으로 돌아가기 버튼 */}
       <button
         onClick={handleGoBack}
         className="mb-6 flex items-center font-bold text-gray-500 hover:text-ssu-black transition"
@@ -146,8 +161,8 @@ const PlayerDetail = () => {
 
       <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden border border-gray-100">
         {/* 프로필 Hero 영역 */}
-        <div className="flex flex-col md:flex-row bg-linear-to-br from-ssu-dark to-ssu-light text-white relative overflow-hidden">
-          <div className="absolute -right-10 -top-10 text-[250px] font-black text-white/3 pointer-events-none select-none tracking-tighter leading-none">
+        <div className="flex flex-col md:flex-row bg-gradient-to-br from-ssu-dark to-ssu-light text-white relative overflow-hidden">
+          <div className="absolute -right-10 -top-10 text-[250px] font-black text-white/5 pointer-events-none select-none tracking-tighter leading-none">
             {player?.number || "-"}
           </div>
 
@@ -160,7 +175,7 @@ const PlayerDetail = () => {
                   : player?.position || "미정"}
               </span>
               <button
-                onClick={handleLike}
+                onClick={() => handleLike(player.id)}
                 className="flex items-center gap-2 text-pink-200 hover:scale-110 transition-transform"
               >
                 <Heart
@@ -234,11 +249,9 @@ const PlayerDetail = () => {
           {/* --- [섹션 1] 통산기록 --- */}
           <div>
             <h3 className="text-2xl font-black text-ssu-black mb-6 flex items-center">
-              통산 기록{" "}
+              통산 기록
             </h3>
-            <div
-              className={`grid gap-4 ${isGK ? "grid-cols-2" : "grid-cols-3"}`}
-            >
+            <div className="grid gap-4 grid-cols-3">
               <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center">
                 <p className="text-4xl font-black text-ssu-black">
                   {careerTotalApps}
@@ -246,12 +259,20 @@ const PlayerDetail = () => {
                 </p>
               </div>
               {isGK ? (
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center">
-                  <p className="text-4xl font-black text-ssu-black">
-                    {careerTotalMins}
-                    <span className="text-lg text-gray-500 ml-1">분</span>
-                  </p>
-                </div>
+                <>
+                  <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center">
+                    <p className="text-4xl font-black text-ssu-black">
+                      {careerTotalMins}
+                      <span className="text-lg text-gray-500 ml-1">분</span>
+                    </p>
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center">
+                    <p className="text-4xl font-black text-purple-600">
+                      {careerTotalConceded}
+                      <span className="text-lg text-gray-500 ml-1">실점</span>
+                    </p>
+                  </div>
+                </>
               ) : (
                 <>
                   <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center">
@@ -274,7 +295,6 @@ const PlayerDetail = () => {
           {/* --- [섹션 2] 시즌별 출전 기록 --- */}
           <div>
             <h3 className="text-2xl font-black text-ssu-black mb-6 flex items-center">
-              {" "}
               시즌별 출전 기록
             </h3>
             <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -290,7 +310,7 @@ const PlayerDetail = () => {
                       </th>
                       {displayTournaments.map((t) => (
                         <th
-                          colSpan={isGK ? "2" : "4"}
+                          colSpan={isGK ? "3" : "4"}
                           key={t}
                           className="py-2 border-r border-gray-200"
                         >
@@ -298,7 +318,7 @@ const PlayerDetail = () => {
                         </th>
                       ))}
                       <th
-                        colSpan={isGK ? "2" : "4"}
+                        colSpan={isGK ? "3" : "4"}
                         className="py-2 bg-ssu-black text-white"
                       >
                         통산
@@ -313,12 +333,16 @@ const PlayerDetail = () => {
                           >
                             시간
                           </th>
-                          {!isGK && (
-                            <th className="py-3 px-2 text-blue-600">득점</th>
-                          )}
-                          {!isGK && (
-                            <th className="py-3 px-2 border-r border-gray-200 text-green-600">
-                              도움
+                          {!isGK ? (
+                            <>
+                              <th className="py-3 px-2 text-blue-600">득점</th>
+                              <th className="py-3 px-2 border-r border-gray-200 text-green-600">
+                                도움
+                              </th>
+                            </>
+                          ) : (
+                            <th className="py-3 px-2 border-r border-gray-200 text-purple-600">
+                              실점
                             </th>
                           )}
                         </React.Fragment>
@@ -329,14 +353,18 @@ const PlayerDetail = () => {
                       <th className="py-3 px-2 bg-gray-50 text-gray-800">
                         시간
                       </th>
-                      {!isGK && (
-                        <th className="py-3 px-2 bg-gray-50 text-blue-600">
-                          득점
-                        </th>
-                      )}
-                      {!isGK && (
-                        <th className="py-3 px-2 bg-gray-50 text-green-600">
-                          도움
+                      {!isGK ? (
+                        <>
+                          <th className="py-3 px-2 bg-gray-50 text-blue-600">
+                            득점
+                          </th>
+                          <th className="py-3 px-2 bg-gray-50 text-green-600">
+                            도움
+                          </th>
+                        </>
+                      ) : (
+                        <th className="py-3 px-2 bg-gray-50 text-purple-600">
+                          실점
                         </th>
                       )}
                     </tr>
@@ -356,19 +384,34 @@ const PlayerDetail = () => {
                         const yearLogs = enrichedLogs.filter(
                           (l) => Number(l.year) === Number(year),
                         );
-                        const yApps = yearLogs.length;
-                        const yMins = yearLogs.reduce(
-                          (a, c) => a + (Number(c.minutes) || 0),
-                          0,
-                        );
-                        const yGoals = yearLogs.reduce(
-                          (a, c) => a + (Number(c.goals) || 0),
-                          0,
-                        );
-                        const yAsts = yearLogs.reduce(
-                          (a, c) => a + (Number(c.assists) || 0),
-                          0,
-                        );
+
+                        // 🔥 DB에 저장된 연도별 스탯 우선 적용
+                        const yApps =
+                          player?.stats?.years?.[year]?.apps || yearLogs.length;
+                        const yMins =
+                          player?.stats?.years?.[year]?.mins ||
+                          yearLogs.reduce(
+                            (a, c) => a + (Number(c.minutes) || 0),
+                            0,
+                          );
+                        const yGoals =
+                          player?.stats?.years?.[year]?.goals ||
+                          yearLogs.reduce(
+                            (a, c) => a + (Number(c.goals) || 0),
+                            0,
+                          );
+                        const yAsts =
+                          player?.stats?.years?.[year]?.assists ||
+                          yearLogs.reduce(
+                            (a, c) => a + (Number(c.assists) || 0),
+                            0,
+                          );
+                        const yConceded =
+                          player?.stats?.years?.[year]?.conceded ||
+                          yearLogs.reduce(
+                            (a, c) => a + (Number(c.conceded) || 0),
+                            0,
+                          );
 
                         return (
                           <tr
@@ -395,6 +438,11 @@ const PlayerDetail = () => {
                                 (a, c) => a + (Number(c.assists) || 0),
                                 0,
                               );
+                              const tConceded = tLogs.reduce(
+                                (a, c) => a + (Number(c.conceded) || 0),
+                                0,
+                              );
+
                               return (
                                 <React.Fragment key={`${year}-${t}`}>
                                   <td
@@ -407,18 +455,24 @@ const PlayerDetail = () => {
                                   >
                                     {tMins ? `${tMins}'` : "-"}
                                   </td>
-                                  {!isGK && (
+                                  {!isGK ? (
+                                    <>
+                                      <td
+                                        className={`py-3 px-2 font-black ${tGoals > 0 ? "text-blue-600" : "text-gray-300"}`}
+                                      >
+                                        {tGoals || "-"}
+                                      </td>
+                                      <td
+                                        className={`py-3 px-2 border-r border-gray-100 font-black ${tAsts > 0 ? "text-green-600" : "text-gray-300"}`}
+                                      >
+                                        {tAsts || "-"}
+                                      </td>
+                                    </>
+                                  ) : (
                                     <td
-                                      className={`py-3 px-2 font-black ${tGoals > 0 ? "text-blue-600" : "text-gray-300"}`}
+                                      className={`py-3 px-2 border-r border-gray-100 font-black ${tConceded > 0 ? "text-purple-600" : "text-gray-300"}`}
                                     >
-                                      {tGoals || "-"}
-                                    </td>
-                                  )}
-                                  {!isGK && (
-                                    <td
-                                      className={`py-3 px-2 border-r border-gray-100 font-black ${tAsts > 0 ? "text-green-600" : "text-gray-300"}`}
-                                    >
-                                      {tAsts || "-"}
+                                      {tConceded || "-"}
                                     </td>
                                   )}
                                 </React.Fragment>
@@ -430,14 +484,18 @@ const PlayerDetail = () => {
                             <td className="py-3 px-2 font-bold text-gray-600 bg-gray-50">
                               {yMins}'
                             </td>
-                            {!isGK && (
-                              <td className="py-3 px-2 font-black text-blue-600 bg-gray-50">
-                                {yGoals}
-                              </td>
-                            )}
-                            {!isGK && (
-                              <td className="py-3 px-2 font-black text-green-600 bg-gray-50">
-                                {yAsts}
+                            {!isGK ? (
+                              <>
+                                <td className="py-3 px-2 font-black text-blue-600 bg-gray-50">
+                                  {yGoals}
+                                </td>
+                                <td className="py-3 px-2 font-black text-green-600 bg-gray-50">
+                                  {yAsts}
+                                </td>
+                              </>
+                            ) : (
+                              <td className="py-3 px-2 font-black text-purple-600 bg-gray-50">
+                                {yConceded}
                               </td>
                             )}
                           </tr>
@@ -460,15 +518,12 @@ const PlayerDetail = () => {
             </div>
           </div>
 
-          {/* --- [섹션 3] 경기별 출전 기록 (드롭다운 -> 상단 탭 형식으로 변경) --- */}
+          {/* --- [섹션 3] 경기별 출전 기록 --- */}
           <div>
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
               <h3 className="text-2xl font-black text-ssu-black flex items-center">
-                {" "}
                 경기별 출전 기록
               </h3>
-
-              {/* 🔥 연도 토글 UI (상단 배치 버튼 그룹) */}
               {uniqueYears.length > 0 && (
                 <div className="flex bg-white rounded-lg p-1 border border-gray-200 shadow-sm overflow-x-auto w-full md:w-auto">
                   {uniqueYears.map((year) => (
@@ -503,8 +558,14 @@ const PlayerDetail = () => {
                         <th className="py-4 px-4 text-left">상대팀</th>
                         <th className="py-4 px-4">출전상태</th>
                         <th className="py-4 px-4">출전시간</th>
-                        {!isGK && <th className="py-4 px-4">득점</th>}
-                        {!isGK && <th className="py-4 px-4">도움</th>}
+                        {!isGK ? (
+                          <>
+                            <th className="py-4 px-4">득점</th>
+                            <th className="py-4 px-4">도움</th>
+                          </>
+                        ) : (
+                          <th className="py-4 px-4">실점</th>
+                        )}
                         <th className="py-4 px-6">MOM</th>
                       </tr>
                     </thead>
@@ -537,16 +598,22 @@ const PlayerDetail = () => {
                             <td className="py-4 px-4 font-bold text-gray-600">
                               {log.minutes ? `${log.minutes}'` : "-"}
                             </td>
-                            {!isGK && (
-                              <td className="py-4 px-4 font-black text-blue-600">
-                                {Number(log.goals) > 0 ? log.goals : "-"}
+
+                            {!isGK ? (
+                              <>
+                                <td className="py-4 px-4 font-black text-blue-600">
+                                  {Number(log.goals) > 0 ? log.goals : "-"}
+                                </td>
+                                <td className="py-4 px-4 font-black text-green-600">
+                                  {Number(log.assists) > 0 ? log.assists : "-"}
+                                </td>
+                              </>
+                            ) : (
+                              <td className="py-4 px-4 font-black text-purple-600">
+                                {Number(log.conceded) > 0 ? log.conceded : "-"}
                               </td>
                             )}
-                            {!isGK && (
-                              <td className="py-4 px-4 font-black text-green-600">
-                                {Number(log.assists) > 0 ? log.assists : "-"}
-                              </td>
-                            )}
+
                             <td className="py-4 px-6">
                               {log.mom ? (
                                 <Award
@@ -589,30 +656,21 @@ const PlayerDetail = () => {
               </button>
             </form>
 
-            {/* 🔥 모바일 1열 구조 반영 (기존 디자인 유지) */}
-            <div className="space-y-3 md:space-y-4 max-h-100 overflow-y-auto pr-1 md:pr-2 custom-scrollbar">
-              {(player?.comments || []).map((c) => (
+            <div className="space-y-3">
+              {realtimeComments.map((c) => (
                 <div
                   key={c.id}
-                  className="bg-white p-4 md:p-5 rounded-2xl border border-gray-100 flex flex-wrap justify-between items-baseline gap-x-4 gap-y-2 shadow-sm hover:shadow-md transition-shadow"
+                  className="bg-white p-5 rounded-2xl border border-gray-100 flex justify-between items-center shadow-sm"
                 >
-                  <p className="text-sm md:text-base text-gray-800 font-bold leading-relaxed break-keep flex-1 min-w-[60%]">
-                    {c.text}
-                  </p>
-                  <span className="text-[10px] md:text-xs text-gray-400 font-medium whitespace-nowrap text-right">
+                  <p className="text-sm font-bold text-gray-700">{c.text}</p>
+                  <span className="text-[10px] text-gray-400 font-black uppercase">
                     {c.date}
                   </span>
                 </div>
               ))}
-              {(!player?.comments || player.comments.length === 0) && (
-                <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                  <MessageCircle
-                    size={40}
-                    className="mx-auto text-gray-200 mb-4"
-                  />
-                  <p className="text-gray-500 font-bold text-sm md:text-base">
-                    첫 번째 응원 메시지의 주인공이 되어보세요!
-                  </p>
+              {realtimeComments.length === 0 && (
+                <div className="text-center py-10 text-slate-400 font-bold">
+                  첫 번째 응원 메시지의 주인공이 되어보세요!
                 </div>
               )}
             </div>
@@ -628,7 +686,7 @@ const PlayerDetail = () => {
 // ==============================================================================
 const PlayerList = () => {
   const navigate = useNavigate();
-  const { players } = useData(); // 🔥 전역 데이터 사용
+  const { players } = useData();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [mainTab, setMainTab] = useState("CURRENT");
@@ -704,7 +762,6 @@ const PlayerList = () => {
     { id: "GK", label: "GK" },
   ];
 
-  // 🔥 선수 클릭 시 Router를 통해 URL 변경 (/players/선수고유ID)
   const handlePlayerClick = (playerId) => {
     navigate(`/players/${playerId}`);
   };
@@ -735,7 +792,7 @@ const PlayerList = () => {
         )}
       </div>
 
-      <div className="absolute inset-0 bg-linear-to-t from-ssu-dark via-ssu-black/30 to-transparent opacity-90 group-hover:opacity-100 transition-opacity duration-300 z-20"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-ssu-dark via-ssu-black/30 to-transparent opacity-90 group-hover:opacity-100 transition-opacity duration-300 z-20"></div>
 
       <div className="absolute -right-4 -bottom-6 text-[150px] md:text-[220px] font-black text-white/5 group-hover:text-ssu-light/10 transition-colors duration-500 z-20 select-none pointer-events-none">
         {player?.number || "-"}
@@ -761,7 +818,6 @@ const PlayerList = () => {
 
   return (
     <div className="space-y-6 animate-fade-in pb-20 w-full max-w-7xl mx-auto">
-      {/* 최상단 대형 메인 탭 */}
       <div className="flex w-full border-b border-gray-200 pt-2">
         <button
           onClick={() => {
@@ -771,7 +827,6 @@ const PlayerList = () => {
           }}
           className={`flex-1 py-2 md:py-2 text-base md:text-l font-black text-center transition-all ${mainTab === "CURRENT" ? "border-b border-ssu-dark text-ssu-dark" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"}`}
         >
-          {" "}
           선수단
         </button>
         <button
@@ -781,14 +836,11 @@ const PlayerList = () => {
           }}
           className={`flex-1 py-2 md:py-2 text-base md:text-l font-black text-center transition-all ${mainTab === "ALUMNI" ? "border-b border-ssu-dark text-ssu-dark" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"}`}
         >
-          {" "}
           졸업 및 취업
         </button>
       </div>
 
-      {/* 🔥 2) 검색 및 포지션 필터 영역 */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 py-4">
-        {/* 검색바 */}
         <div className="relative w-full md:w-80 shrink-0">
           <Search
             size={20}
@@ -802,7 +854,6 @@ const PlayerList = () => {
           />
         </div>
 
-        {/* 포지션 서브 탭 (모바일에서는 가로 스크롤) */}
         <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 custom-scrollbar">
           {mainTab === "CURRENT" &&
             subTabs.map((tab) => (
@@ -817,9 +868,7 @@ const PlayerList = () => {
         </div>
       </div>
 
-      {/* 🔥 3) 메인 리스트 렌더링 */}
       {searchTerm.trim() !== "" ? (
-        /* 검색 결과 화면 */
         <div className="animate-fade-in pt-8 border-t border-gray-100">
           <h3 className="text-2xl font-black text-ssu-black mb-6 flex items-center">
             <Search className="mr-2 text-[#FFD60A]" size={28} /> 검색 결과
@@ -835,7 +884,6 @@ const PlayerList = () => {
           )}
         </div>
       ) : mainTab === "CURRENT" ? (
-        /* 재학생 (선수) 화면 */
         <div className="pt-4">
           {activePosTab === "ALL"
             ? ["4학년", "3학년", "2학년", "1학년", "기타"].map((grade) => {
@@ -847,7 +895,6 @@ const PlayerList = () => {
                 return (
                   <div key={grade} className="mb-16 animate-fade-in">
                     <h3 className="text-3xl font-black text-ssu-black mb-6 flex items-center">
-                      {" "}
                       {grade}
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
@@ -881,7 +928,6 @@ const PlayerList = () => {
               })}
         </div>
       ) : (
-        /* 졸업 및 취업 (ALUMNI) 화면 */
         <div className="pt-4 animate-fade-in">
           {alumniPlayers.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">

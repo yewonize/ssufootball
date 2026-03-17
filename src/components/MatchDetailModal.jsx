@@ -19,6 +19,7 @@ const MatchDetailModal = ({ match, onClose }) => {
   const { matches, matchLogs } = useData();
   const [activeTab, setActiveTab] = useState("summary");
 
+  // 해당 경기에 뛴 선수들의 로그(스탯) 모음
   const currentMatchLogs = useMemo(() => {
     if (!match?.id || !matchLogs?.length) return [];
     return matchLogs.filter(
@@ -26,6 +27,25 @@ const MatchDetailModal = ({ match, onClose }) => {
     );
   }, [match?.id, matchLogs]);
 
+  // 🔥 [핵심 수정] 과거의 match.scorers를 버리고, 개인별 로그에서 득점/도움 데이터를 추출합니다!
+  const safeScorers = useMemo(() => {
+    return currentMatchLogs
+      .filter((log) => log.goals > 0)
+      .map((log) => ({ name: log.name, count: log.goals }))
+      .sort((a, b) => b.count - a.count); // 다득점자 순 정렬
+  }, [currentMatchLogs]);
+
+  const safeAssists = useMemo(() => {
+    const list = [];
+    currentMatchLogs
+      .filter((log) => log.assists > 0)
+      .forEach((log) => {
+        for (let i = 0; i < log.assists; i++) list.push(log.name);
+      });
+    return list;
+  }, [currentMatchLogs]);
+
+  // 상대 전적 계산
   const h2h = useMemo(() => {
     if (!match?.opponent) return { w: 0, d: 0, l: 0 };
     const history = (matches || []).filter(
@@ -46,16 +66,19 @@ const MatchDetailModal = ({ match, onClose }) => {
 
   if (!match) return null;
 
-  const safeScorers = Array.isArray(match.scorers) ? match.scorers : [];
-  const safeAssists = Array.isArray(match.assists) ? match.assists : [];
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-6 animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden relative"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* 1. 히어로 배너 */}
-        <div className="modal-hero-bright">
-          <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none select-none">
-            <span className="text-[180px] font-black tracking-tighter whitespace-nowrap">
+        <div className="relative bg-ssu-black text-white px-6 py-10 md:py-12 overflow-hidden shrink-0">
+          <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none select-none overflow-hidden">
+            <span className="text-[120px] md:text-[180px] font-black tracking-tighter whitespace-nowrap">
               SOONGSIL
             </span>
           </div>
@@ -105,7 +128,7 @@ const MatchDetailModal = ({ match, onClose }) => {
               </div>
 
               <div className="flex flex-col items-center flex-1">
-                <span className="text-2xl md:text-4xl font-black tracking-tight drop-shadow-md text-white">
+                <span className="text-2xl md:text-4xl font-black tracking-tight drop-shadow-md text-white text-center break-keep">
                   {match.opponent || "상대팀"}
                 </span>
               </div>
@@ -134,17 +157,13 @@ const MatchDetailModal = ({ match, onClose }) => {
         <div className="flex bg-white shrink-0 border-b border-gray-100 shadow-sm relative z-20">
           <button
             onClick={() => setActiveTab("summary")}
-            className={
-              activeTab === "summary" ? "tab-btn-active" : "tab-btn-inactive"
-            }
+            className={`flex-1 py-4 text-sm font-black transition-colors ${activeTab === "summary" ? "text-ssu-blue border-b-2 border-ssu-blue bg-blue-50/30" : "text-gray-400 hover:text-ssu-black hover:bg-gray-50"}`}
           >
             MATCH SUMMARY
           </button>
           <button
             onClick={() => setActiveTab("lineup")}
-            className={
-              activeTab === "lineup" ? "tab-btn-active" : "tab-btn-inactive"
-            }
+            className={`flex-1 py-4 text-sm font-black transition-colors ${activeTab === "lineup" ? "text-ssu-blue border-b-2 border-ssu-blue bg-blue-50/30" : "text-gray-400 hover:text-ssu-black hover:bg-gray-50"}`}
           >
             LINE-UP & RECORDS
           </button>
@@ -155,9 +174,8 @@ const MatchDetailModal = ({ match, onClose }) => {
           {/* TAB 1: SUMMARY */}
           {activeTab === "summary" && (
             <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-              {/* Upcoming: 상대 전적 */}
               {match.status === "Upcoming" && (
-                <div className="modal-card-white text-center rounded-3xl!">
+                <div className="bg-white p-6 md:p-8 border border-gray-100 text-center rounded-3xl shadow-sm">
                   <h4 className="font-black text-ssu-black mb-8 text-sm uppercase tracking-widest flex items-center justify-center">
                     <BarChart2 size={18} className="mr-2 text-ssu-blue" /> vs{" "}
                     {match.opponent} 상대 전적
@@ -167,7 +185,7 @@ const MatchDetailModal = ({ match, onClose }) => {
                       <div className="text-4xl md:text-5xl font-black text-ssu-blue mb-2">
                         {h2h.w}
                       </div>
-                      <div className="text-[10px] font-black text-ssu-dark bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">
+                      <div className="text-[10px] font-black text-ssu-blue bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">
                         WIN
                       </div>
                     </div>
@@ -193,11 +211,10 @@ const MatchDetailModal = ({ match, onClose }) => {
                 </div>
               )}
 
-              {/* Finished: 득점 정보 & MOM */}
               {match.status === "Finished" && (
                 <div className="grid md:grid-cols-2 gap-4 md:gap-6">
                   {/* 득점 카드 */}
-                  <div className="modal-card-white rounded-3xl!">
+                  <div className="bg-white p-6 border border-gray-100 rounded-3xl shadow-sm flex flex-col h-full">
                     <h4 className="font-black text-ssu-black border-b border-gray-100 pb-4 mb-4 flex items-center text-sm tracking-widest uppercase">
                       <Target className="mr-2 text-ssu-blue" size={18} /> Goals
                       & Assists
@@ -213,7 +230,7 @@ const MatchDetailModal = ({ match, onClose }) => {
                               {scorer.name}
                             </span>
                             <span className="text-[11px] font-black text-ssu-black bg-[#FFD60A] px-3 py-1.5 rounded-xl shadow-sm tracking-widest">
-                              {scorer.count || scorer.goals} GOAL
+                              {scorer.count} GOAL
                             </span>
                           </div>
                         ))}
@@ -227,14 +244,14 @@ const MatchDetailModal = ({ match, onClose }) => {
                         )}
                       </div>
                     ) : (
-                      <div className="flex-1 flex items-center justify-center text-gray-400 text-sm font-bold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                      <div className="flex-1 flex items-center justify-center text-gray-400 text-sm font-bold bg-gray-50 rounded-2xl border border-dashed border-gray-200 min-h-[120px]">
                         득점 기록이 없습니다.
                       </div>
                     )}
                   </div>
 
                   {/* MOM 카드 */}
-                  <div className="modal-card-white rounded-3xl! border-yellow-300 shadow-[0_4px_20px_rgba(255,214,10,0.15)] relative overflow-hidden">
+                  <div className="bg-white p-6 border border-yellow-300 rounded-3xl shadow-[0_4px_20px_rgba(255,214,10,0.15)] relative overflow-hidden flex flex-col h-full">
                     <div className="absolute -right-10 -top-10 w-40 h-40 bg-yellow-50 rounded-full blur-2xl pointer-events-none"></div>
                     <h4 className="font-black text-ssu-black border-b border-gray-100 pb-4 mb-4 flex items-center text-sm tracking-widest uppercase relative z-10">
                       <Award className="mr-2 text-yellow-500" size={18} /> Man
@@ -246,9 +263,9 @@ const MatchDetailModal = ({ match, onClose }) => {
                           ? match.mom
                           : currentMatchLogs.find((log) => log.mom)?.name;
                       return (
-                        <div className="flex-1 flex flex-col justify-center relative z-10">
+                        <div className="flex-1 flex flex-col justify-center relative z-10 min-h-[120px]">
                           {displayMom ? (
-                            <div className="flex items-center gap-5 p-3 bg-linear-to-r from-yellow-50 to-white rounded-2xl border border-yellow-100">
+                            <div className="flex items-center gap-5 p-3 bg-gradient-to-r from-yellow-50 to-white rounded-2xl border border-yellow-100">
                               <div className="bg-[#FFD60A] text-ssu-black p-4 rounded-2xl shadow-md">
                                 <Award size={32} strokeWidth={2.5} />
                               </div>
@@ -283,13 +300,13 @@ const MatchDetailModal = ({ match, onClose }) => {
                       href={match.media.highlight}
                       target="_blank"
                       rel="noreferrer"
-                      className="group media-btn hover:border-red-200 hover:text-red-600"
+                      className="group flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:border-red-200 hover:text-red-600 transition-all shadow-sm"
                     >
                       <div className="flex items-center gap-3">
                         <div className="bg-red-50 text-red-500 p-2 rounded-xl group-hover:bg-red-500 group-hover:text-white transition-colors">
                           <Youtube size={20} />
                         </div>
-                        <span className="text-sm">하이라이트</span>
+                        <span className="text-sm font-bold">하이라이트</span>
                       </div>
                       <ChevronRight
                         size={16}
@@ -302,13 +319,13 @@ const MatchDetailModal = ({ match, onClose }) => {
                       href={match.media.report}
                       target="_blank"
                       rel="noreferrer"
-                      className="group media-btn hover:border-green-200 hover:text-green-600"
+                      className="group flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:border-green-200 hover:text-green-600 transition-all shadow-sm"
                     >
                       <div className="flex items-center gap-3">
                         <div className="bg-green-50 text-green-500 p-2 rounded-xl group-hover:bg-green-500 group-hover:text-white transition-colors">
                           <BookOpen size={20} />
                         </div>
-                        <span className="text-sm">경기 리뷰</span>
+                        <span className="text-sm font-bold">경기 리뷰</span>
                       </div>
                       <ChevronRight
                         size={16}
@@ -321,13 +338,13 @@ const MatchDetailModal = ({ match, onClose }) => {
                       href={match.media.interview}
                       target="_blank"
                       rel="noreferrer"
-                      className="group media-btn hover:border-blue-200 hover:text-blue-600"
+                      className="group flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:border-blue-200 hover:text-blue-600 transition-all shadow-sm"
                     >
                       <div className="flex items-center gap-3">
                         <div className="bg-blue-50 text-ssu-blue p-2 rounded-xl group-hover:bg-ssu-blue group-hover:text-white transition-colors">
                           <Mic size={20} />
                         </div>
-                        <span className="text-sm">선수 인터뷰</span>
+                        <span className="text-sm font-bold">선수 인터뷰</span>
                       </div>
                       <ChevronRight
                         size={16}
@@ -360,7 +377,7 @@ const MatchDetailModal = ({ match, onClose }) => {
 
                 <div className="overflow-x-auto custom-scrollbar">
                   <table className="w-full text-sm text-center whitespace-nowrap">
-                    <thead className="bg-ssu-black/5 border-b border-gray-200">
+                    <thead className="bg-slate-50 border-b border-gray-200">
                       <tr>
                         <th className="px-6 py-4 font-black text-ssu-black text-left text-[11px] uppercase tracking-widest">
                           선수명
@@ -399,11 +416,7 @@ const MatchDetailModal = ({ match, onClose }) => {
                             </td>
                             <td className="px-4 py-4">
                               <span
-                                className={
-                                  p.starter === "선발" || p.starter === true
-                                    ? "badge-ssu"
-                                    : "badge-outline"
-                                }
+                                className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest ${p.starter === "선발" || p.starter === true ? "bg-ssu-black text-white" : "bg-white border border-gray-200 text-gray-500"}`}
                               >
                                 {p.starter === "선발" || p.starter === true
                                   ? "선발"
