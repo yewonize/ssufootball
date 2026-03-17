@@ -15,6 +15,21 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+@keyframes calendar-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-calendar-pop {
+  animation: calendar-pop 0.18s ease-out;
+}
+
 @layer components {
   /* 🏠 페이지 공통 컨테이너 */
   .page-layout {

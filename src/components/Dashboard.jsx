@@ -384,52 +384,55 @@ const Dashboard = ({ setActiveTab }) => {
           </div>
         </div>
 
-        {/* 🟢 4. Calendar (기존 개선안 유지) */}
-        {/* 캘린더 그리드 */}
+        {/* 🟢 4. Calendar */}
         <div className="lg:col-span-5 bg-white rounded-4xl border border-gray-100 p-6 shadow-sm relative">
-          {/* 헤더 (기존 유지) */}
+          {/* 헤더 */}
           <div className="flex justify-between items-center mb-8">
-            <h3 className="font-black text-ssu-black flex items-center text-xl">
+            <h3 className="font-black text-ssu-black flex items-center text-xl tracking-tight">
               <CalendarIcon className="mr-2 text-ssu-blue" size={24} />
               {currentMonth.getFullYear()}.
               {String(currentMonth.getMonth() + 1).padStart(2, "0")}
             </h3>
+
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   setSelectedDate(null);
-                  setCurrentMonth(
-                    new Date(
-                      currentMonth.setMonth(currentMonth.getMonth() - 1),
-                    ),
-                  );
+                  const prevMonth = new Date(currentMonth);
+                  prevMonth.setMonth(prevMonth.getMonth() - 1);
+                  setCurrentMonth(prevMonth);
                 }}
-                className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition"
+                className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-2xl transition border border-transparent hover:border-slate-200"
               >
                 <ChevronLeft size={18} />
               </button>
+
               <button
                 onClick={() => {
                   setSelectedDate(null);
-                  setCurrentMonth(
-                    new Date(
-                      currentMonth.setMonth(currentMonth.getMonth() + 1),
-                    ),
-                  );
+                  const nextMonth = new Date(currentMonth);
+                  nextMonth.setMonth(nextMonth.getMonth() + 1);
+                  setCurrentMonth(nextMonth);
                 }}
-                className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition"
+                className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-2xl transition border border-transparent hover:border-slate-200"
               >
                 <ChevronRight size={18} />
               </button>
             </div>
           </div>
 
-          {/* 요일 (기존 유지) */}
+          {/* 요일 */}
           <div className="grid grid-cols-7 gap-1 text-center mb-4">
             {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
               <div
                 key={i}
-                className={`text-[10px] font-black uppercase tracking-widest ${i === 0 ? "text-red-400" : i === 6 ? "text-ssu-blue" : "text-slate-300"}`}
+                className={`text-[10px] font-black uppercase tracking-[0.18em] ${
+                  i === 0
+                    ? "text-red-400"
+                    : i === 6
+                      ? "text-ssu-blue"
+                      : "text-slate-300"
+                }`}
               >
                 {d}
               </div>
@@ -439,15 +442,22 @@ const Dashboard = ({ setActiveTab }) => {
           {/* 날짜 그리드 */}
           <div className="grid grid-cols-7 gap-2 relative">
             {calendarData.map((day, i) => {
-              if (!day) return <div key={i} className="aspect-square"></div>;
+              if (!day) return <div key={i} className="aspect-square" />;
 
-              const fullDate = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-              const dateKey = `${String(currentMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+              const fullDate = `${currentMonth.getFullYear()}-${String(
+                currentMonth.getMonth() + 1,
+              ).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+              const dateKey = `${String(currentMonth.getMonth() + 1).padStart(
+                2,
+                "0",
+              )}-${String(day).padStart(2, "0")}`;
+
               const dayMatches = matches.filter((m) => m.date === fullDate);
               const birthdayPlayers = birthdaysByDate[dateKey] || [];
               const isSelected = selectedDate === fullDate;
 
-              // 팝업이 그리드 끝에서 잘리지 않도록 위치 계산 (왼쪽 3칸은 오른쪽으로, 오른쪽 4칸은 왼쪽으로 팝업)
+              // 오른쪽 끝 잘림 방지
               const isRightSide = i % 7 > 3;
 
               return (
@@ -457,112 +467,172 @@ const Dashboard = ({ setActiveTab }) => {
                     onClick={() =>
                       setSelectedDate(isSelected ? null : fullDate)
                     }
-                    className={`w-full aspect-square rounded-2xl flex flex-col items-center justify-center relative transition-all border-2
-              ${isSelected ? "border-ssu-blue bg-ssu-blue/5 shadow-sm" : "border-transparent bg-slate-50/50 hover:bg-white hover:border-slate-200"}
+                    className={`w-full aspect-square rounded-[22px] flex flex-col items-center justify-center relative transition-all border
+              ${
+                isSelected
+                  ? "border-slate-300 bg-white ring-4 ring-slate-100 shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
+                  : "border-transparent bg-slate-50/70 hover:bg-white hover:border-slate-200"
+              }
             `}
                   >
                     <span
-                      className={`text-sm font-black ${isSelected ? "text-ssu-blue" : "text-slate-600"}`}
+                      className={`text-sm font-black tracking-tight ${
+                        isSelected ? "text-slate-900" : "text-slate-600"
+                      }`}
                     >
                       {day}
                     </span>
-                    <div className="flex gap-1 mt-1">
+
+                    <div className="flex gap-1 mt-1.5">
                       {dayMatches.length > 0 && (
-                        <div className="w-1 h-1 bg-ssu-blue rounded-full"></div>
+                        <div className="w-1.5 h-1.5 bg-slate-900 rounded-full" />
                       )}
                       {birthdayPlayers.length > 0 && (
-                        <div className="w-1 h-1 bg-pink-400 rounded-full animate-pulse"></div>
+                        <div className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
                       )}
                     </div>
                   </button>
 
-                  {/* 🔥 팝오버 (Popover) 카드 */}
+                  {/* 상세 카드 */}
                   {isSelected && (
                     <div
-                      className={`absolute bottom-full mb-3 z-50 animate-fade-in
-              ${isRightSide ? "right-0" : "left-0"}
-              w-55 md:w-65
-            `}
+                      className={`absolute bottom-full mb-3 z-50 animate-calendar-pop
+                ${isRightSide ? "right-0" : "left-0"}
+                w-65 md:w-75
+              `}
                     >
-                      {/* 말풍선 카드 */}
-                      <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden ring-1 ring-black/5">
-                        {/* 팝업 헤더 */}
-                        <div className="bg-ssu-blue px-4 py-2 flex justify-between items-center">
-                          <span className="text-[10px] font-black text-[#FFD60A] tracking-tighter">
-                            {selectedDate.replace(/-/g, ".")}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedDate(null);
-                            }}
-                            className="text-white/60 hover:text-white"
-                          >
-                            <X size={14} />
-                          </button>
+                      <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)] overflow-hidden">
+                        {/* 상단 메타 */}
+                        <div className="px-4 pt-4 pb-3 border-b border-slate-100 bg-white">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                                Selected date
+                              </p>
+                              <h4 className="mt-1 text-base font-black text-slate-900 tracking-tight">
+                                {fullDate.replace(/-/g, ".")}
+                              </h4>
+                            </div>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDate(null);
+                              }}
+                              className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+
+                          <div className="mt-3 flex items-center gap-2 flex-wrap">
+                            {dayMatches.length > 0 && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
+                                경기 {dayMatches.length}
+                              </span>
+                            )}
+
+                            {birthdayPlayers.length > 0 && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2.5 py-1 text-[10px] font-bold text-pink-600 border border-pink-100">
+                                <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
+                                생일 {birthdayPlayers.length}
+                              </span>
+                            )}
+
+                            {dayMatches.length === 0 &&
+                              birthdayPlayers.length === 0 && (
+                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                                  일정 없음
+                                </span>
+                              )}
+                          </div>
                         </div>
 
-                        {/* 팝업 내용 */}
-                        <div className="p-3 space-y-2 max-h-45 overflow-y-auto custom-scrollbar bg-white">
+                        {/* 내용 */}
+                        <div className="p-3 space-y-2 max-h-64 overflow-y-auto custom-scrollbar bg-white">
                           {dayMatches.map((m) => (
-                            <div
+                            <button
                               key={m.id}
-                              className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 hover:bg-blue-50 transition-colors cursor-pointer group"
-                              onClick={() => setActiveTab("matches")}
+                              onClick={() => {
+                                setActiveTab("matches");
+                                setSelectedDate(null);
+                                // 필요하면 아래 같은 식으로 확장 가능
+                                // setSelectedMatchId?.(m.id);
+                              }}
+                              className="w-full text-left rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:shadow-sm transition p-3 group"
                             >
-                              <div className="bg-ssu-blue text-white p-1.5 rounded-lg">
-                                <Trophy size={12} />
+                              <div className="flex items-start gap-3">
+                                <div className="mt-0.5 h-9 w-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center shrink-0">
+                                  <Trophy size={14} />
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                    Match
+                                  </p>
+                                  <p className="mt-1 text-sm font-black text-slate-900 truncate">
+                                    vs {m.opponent}
+                                  </p>
+                                  <p className="mt-1 text-[11px] text-slate-500 truncate">
+                                    {m.type}
+                                  </p>
+                                </div>
+
+                                <ChevronRight
+                                  size={14}
+                                  className="text-slate-300 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all"
+                                />
                               </div>
-                              <div className="flex-1 overflow-hidden">
-                                <p className="text-[9px] font-black text-ssu-blue uppercase leading-none mb-1">
-                                  {m.type}
-                                </p>
-                                <p className="text-[11px] font-bold text-ssu-black truncate">
-                                  vs {m.opponent}
-                                </p>
-                              </div>
-                              <ChevronRight
-                                size={12}
-                                className="text-slate-300 group-hover:text-ssu-blue group-hover:translate-x-0.5 transition-all"
-                              />
-                            </div>
+                            </button>
                           ))}
 
                           {birthdayPlayers.map((p) => (
-                            <div
+                            <button
                               key={p.id}
-                              className="flex items-center gap-2.5 p-2 rounded-xl bg-pink-50 border border-pink-100 cursor-pointer"
-                              onClick={() => setActiveTab("players")}
+                              onClick={() => {
+                                setActiveTab("players");
+                                setSelectedDate(null);
+                                // 필요하면 아래 같은 식으로 확장 가능
+                                // setSelectedPlayerId?.(p.id);
+                              }}
+                              className="w-full text-left rounded-2xl border border-pink-100 bg-pink-50 hover:bg-pink-100/60 transition p-3 group"
                             >
-                              <div className="bg-white p-1.5 rounded-lg shadow-sm text-xs">
-                                🎂
+                              <div className="flex items-start gap-3">
+                                <div className="mt-0.5 h-9 w-9 rounded-2xl bg-white flex items-center justify-center shrink-0 shadow-sm text-sm">
+                                  🎂
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pink-400">
+                                    Birthday
+                                  </p>
+                                  <p className="mt-1 text-sm font-black text-pink-700 truncate">
+                                    {p.name} 선수
+                                  </p>
+                                </div>
+
+                                <ChevronRight
+                                  size={14}
+                                  className="text-pink-200 group-hover:text-pink-500 group-hover:translate-x-0.5 transition-all"
+                                />
                               </div>
-                              <div className="flex-1">
-                                <p className="text-[9px] font-black text-pink-400 uppercase leading-none mb-1">
-                                  Birthday
-                                </p>
-                                <p className="text-[11px] font-bold text-pink-600">
-                                  {p.name} 선수
-                                </p>
-                              </div>
-                            </div>
+                            </button>
                           ))}
 
                           {dayMatches.length === 0 &&
                             birthdayPlayers.length === 0 && (
-                              <div className="py-4 text-center text-slate-300 text-[11px] font-bold italic">
-                                일정이 없습니다.
+                              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                                <p className="text-sm font-bold text-slate-400">
+                                  일정이 없습니다
+                                </p>
+                                <p className="mt-1 text-[11px] text-slate-300">
+                                  이 날짜에는 등록된 경기나 생일 정보가 없어요.
+                                </p>
                               </div>
                             )}
                         </div>
                       </div>
-
-                      {/* 말풍선 꼬리 (Caret) */}
-                      <div
-                        className={`w-3 h-3 bg-white border-r border-b border-slate-100 rotate-45 absolute -bottom-1.5 shadow-sm
-                ${isRightSide ? "right-6" : "left-6"}
-              `}
-                      ></div>
                     </div>
                   )}
                 </div>
@@ -570,13 +640,15 @@ const Dashboard = ({ setActiveTab }) => {
             })}
           </div>
 
-          {/* 하단 범례 (기존 유지) */}
+          {/* 하단 범례 */}
           <div className="mt-8 flex justify-center gap-4 text-[10px] font-bold text-slate-400">
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 bg-ssu-blue rounded-full"></div> 경기 일정
+              <div className="w-2 h-2 bg-slate-900 rounded-full"></div>
+              경기 일정
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 bg-pink-400 rounded-full"></div> 선수 생일
+              <div className="w-2 h-2 bg-pink-400 rounded-full"></div>
+              선수 생일
             </div>
           </div>
         </div>
