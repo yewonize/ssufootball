@@ -1,4 +1,3 @@
-// src/contexts/DataContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
 import {
   collection,
@@ -16,7 +15,7 @@ import {
   orderBy,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "../firebase"; // 방금 만든 파일 불러오기
+import { db } from "../firebase";
 
 // 1. Context(보관소) 생성
 const DataContext = createContext();
@@ -29,12 +28,37 @@ export const DataProvider = ({ children }) => {
   const [matchLogs, setMatchLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 데이터 불러오기 로직 (App.jsx에서 가져옴)
+  // 🔥 [핵심 추가] 데이터 변경 시 캐시를 비워주는 헬퍼 함수
+  const clearCache = () => {
+    sessionStorage.removeItem("cache_matches");
+    sessionStorage.removeItem("cache_players");
+    sessionStorage.removeItem("cache_league");
+    sessionStorage.removeItem("cache_logs");
+  };
+
+  // 데이터 불러오기 로직 (캐싱 적용)
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
+        // 1. Session Storage에서 캐시된 데이터 확인
+        const cacheMatches = sessionStorage.getItem("cache_matches");
+        const cachePlayers = sessionStorage.getItem("cache_players");
+        const cacheLeague = sessionStorage.getItem("cache_league");
+        const cacheLogs = sessionStorage.getItem("cache_logs");
+
+        // 2. 캐시가 모두 존재하면 DB 안 찌르고 캐시에서 바로 렌더링 (요금 0원!)
+        if (cacheMatches && cachePlayers && cacheLeague && cacheLogs) {
+          setMatches(JSON.parse(cacheMatches));
+          setPlayers(JSON.parse(cachePlayers));
+          setLeague(JSON.parse(cacheLeague));
+          setMatchLogs(JSON.parse(cacheLogs));
+          setIsLoading(false);
+          return;
+        }
+
+        // 3. 캐시가 없으면 그때만 Firebase에서 읽어옴
         const [matchSnaps, playerSnaps, leagueSnaps, logsSnap] =
           await Promise.all([
             getDocs(collection(db, "matches")),
@@ -65,10 +89,11 @@ export const DataProvider = ({ children }) => {
         setLeague(leagueData);
         setMatchLogs(logData);
 
-        localStorage.setItem("cache_matches", JSON.stringify(matchData));
-        localStorage.setItem("cache_players", JSON.stringify(playerData));
-        localStorage.setItem("cache_league", JSON.stringify(leagueData));
-        localStorage.setItem("cache_logs", JSON.stringify(logData));
+        // 4. 불러온 데이터를 다음 새로고침을 위해 캐시에 저장
+        sessionStorage.setItem("cache_matches", JSON.stringify(matchData));
+        sessionStorage.setItem("cache_players", JSON.stringify(playerData));
+        sessionStorage.setItem("cache_league", JSON.stringify(leagueData));
+        sessionStorage.setItem("cache_logs", JSON.stringify(logData));
       } catch (err) {
         console.error("데이터 로딩 실패:", err);
       } finally {
@@ -80,16 +105,15 @@ export const DataProvider = ({ children }) => {
 
   const handleUpdatePlayer = async (id, updates) => {
     try {
-      // 1. Firebase 데이터베이스 업데이트
       const playerRef = doc(db, "players", id);
       await updateDoc(playerRef, updates);
 
-      // 🔥 2. 여기가 핵심! 화면(UI)에 즉시 반영되도록 로컬 상태 업데이트
       setPlayers((prevPlayers) =>
         prevPlayers.map((player) =>
           player.id === id ? { ...player, ...updates } : player,
         ),
       );
+      clearCache(); // 데이터가 바뀌었으니 캐시 초기화
     } catch (error) {
       console.error("선수 상태 업데이트 실패:", error);
       throw error;
@@ -98,39 +122,33 @@ export const DataProvider = ({ children }) => {
 
   const handleAddMatch = async (matchData) => {
     try {
-      // 1. 문서 ID 생성: "2026-03-16_상대팀명" (공백 제거)
       const customId = `${matchData.date}_${matchData.opponent.trim()}`;
-
-      // 2. setDoc을 사용하여 문서 ID를 직접 지정하여 저장
       await setDoc(doc(db, "matches", customId), {
         ...matchData,
-        id: customId, // 문서 내부 필드에도 동일한 ID 저장
+        id: customId,
         year: parseInt(matchData.date.split("-")[0]),
       });
 
       setMatches((prev) => [{ id: customId, ...matchData }, ...prev]);
+      clearCache(); // 데이터가 바뀌었으니 캐시 초기화
       return customId;
     } catch (e) {
       console.error("경기 등록 실패:", e);
       throw e;
     }
   };
-  // DataContext.jsx 내부
+
   const handleDeleteMatch = async (matchId) => {
     const match = matches.find((m) => m.id === matchId);
     if (!match) return;
 
     const isConfirmed = window.confirm(
-      "⚠️ 경고: 완전 삭제 및 스탯 롤백\n\n" +
-        "이 경기를 삭제하면 선수들의 누적 스탯(득점, 출전 등)이 자동으로 차감됩니다.\n" +
-        "정말 삭제하시겠습니까?",
+      "⚠️ 경고: 완전 삭제 및 스탯 롤백\n\n이 경기를 삭제하면 선수들의 누적 스탯(득점, 출전 등)이 자동으로 차감됩니다.\n정말 삭제하시겠습니까?",
     );
     if (!isConfirmed) return;
 
     try {
       const batch = writeBatch(db);
-
-      // 1. 해당 경기에 딸린 모든 로그(match_logs) 가져오기
       const logsQuery = query(
         collection(db, "match_logs"),
         where("matchId", "==", matchId),
@@ -138,23 +156,27 @@ export const DataProvider = ({ children }) => {
       const logsSnap = await getDocs(logsQuery);
       const yr = String(match.date.split("-")[0]);
 
-      // 2. 각 로그를 돌며 선수들의 누적 스탯을 반대로 깎기 (마이너스 increment)
       logsSnap.docs.forEach((docSnap) => {
         const logData = docSnap.data();
-        const player = players.find((p) => p.name === logData.name);
+        let targetPlayerId = logData.playerId;
 
-        if (player) {
-          const playerRef = doc(db, "players", player.id);
+        // 이름으로 역추적 (안전장치)
+        if (!targetPlayerId && logData.name) {
+          const foundPlayer = players.find((p) => p.name === logData.name);
+          if (foundPlayer) targetPlayerId = foundPlayer.id;
+        }
+
+        if (targetPlayerId) {
+          const playerRef = doc(db, "players", targetPlayerId);
           batch.update(playerRef, {
-            // 통산 스탯 차감
             "stats.total.goals": increment(-(logData.goals || 0)),
             "stats.total.assists": increment(-(logData.assists || 0)),
             "stats.total.conceded": increment(-(logData.conceded || 0)),
             "stats.total.pkGoals": increment(-(logData.pkGoals || 0)),
             "stats.total.apps": increment(-1),
             "stats.total.mins": increment(-(logData.minutes || 0)),
-
-            // 해당 연도 스탯 차감
+            "stats.total.psoGoals": increment(-(logData.psoGoals || 0)),
+            "stats.total.psoSaves": increment(-(logData.psoSaves || 0)),
             [`stats.years.${yr}.goals`]: increment(-(logData.goals || 0)),
             [`stats.years.${yr}.assists`]: increment(-(logData.assists || 0)),
             [`stats.years.${yr}.conceded`]: increment(-(logData.conceded || 0)),
@@ -163,23 +185,16 @@ export const DataProvider = ({ children }) => {
             [`stats.years.${yr}.mins`]: increment(-(logData.minutes || 0)),
           });
         }
-        // 3. 로그 문서 삭제 대기에 추가
         batch.delete(docSnap.ref);
       });
 
-      // 4. 경기(matches) 문서 삭제 대기에 추가
       batch.delete(doc(db, "matches", matchId));
-
-      // 🔥 5. 모든 작업을 원자적(Atomic)으로 한 번에 실행
-      // 이 중 하나라도 실패하면 아무것도 삭제되지 않아 데이터 안전 보장
       await batch.commit();
 
-      // 6. 리액트 상태 업데이트 (새로고침 없이 UI 반영)
       setMatches((prev) => prev.filter((m) => m.id !== matchId));
-      if (setMatchLogs) {
-        setMatchLogs((prev) => prev.filter((log) => log.matchId !== matchId));
-      }
+      setMatchLogs((prev) => prev.filter((log) => log.matchId !== matchId));
 
+      clearCache(); // 대규모 업데이트 후 캐시 초기화
       alert("경기 삭제 및 선수 스탯 롤백이 완벽하게 완료되었습니다.");
     } catch (error) {
       console.error("완전 삭제 실패:", error);
@@ -187,23 +202,24 @@ export const DataProvider = ({ children }) => {
     }
   };
 
-  // DataContext.jsx 내부
   const handleUpdateMatch = async (id, updates) => {
     try {
       const matchRef = doc(db, "matches", id);
       await updateDoc(matchRef, updates);
-      // 화면 상태 즉시 반영
       setMatches((prev) =>
         prev.map((m) => (m.id === id ? { ...m, ...updates } : m)),
       );
+      clearCache(); // 데이터가 바뀌었으니 캐시 초기화
     } catch (e) {
       console.error("경기 업데이트 실패:", e);
     }
   };
 
-  // --- PlayerSection 전용 함수들 ---
   const handleLikePlayer = async (playerId) => {
     await updateDoc(doc(db, "players", playerId), { likes: increment(1) });
+    // 좋아요는 너무 빈번하므로 캐시를 굳이 날리지 않고 상태만 업데이트 할 수도 있습니다.
+    // 여기서는 확실한 일치를 위해 캐시 초기화 진행
+    clearCache();
   };
 
   const handleAddPlayerComment = async (playerId, text) => {
@@ -226,7 +242,6 @@ export const DataProvider = ({ children }) => {
   };
 
   return (
-    // 하위 컴포넌트들에게 공유할 데이터 목록
     <DataContext.Provider
       value={{
         matches,
@@ -245,6 +260,7 @@ export const DataProvider = ({ children }) => {
         handleLikePlayer,
         handleAddPlayerComment,
         subscribeToPlayerComments,
+        clearCache, // 🔥 명시적 캐시 초기화 함수 제공
       }}
     >
       {children}
@@ -252,5 +268,5 @@ export const DataProvider = ({ children }) => {
   );
 };
 
-// 3. 쉽게 꺼내 쓰기 위한 커스텀 훅 생성!
+export default DataContext;
 export const useData = () => useContext(DataContext);

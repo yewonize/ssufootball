@@ -16,7 +16,6 @@ import {
   Calendar,
 } from "lucide-react";
 import { useData } from "../contexts/DataContext";
-// 🔥 Firebase import가 완벽하게 제거되었습니다!
 
 // ==============================================================================
 // 1. 선수 상세 페이지 컴포넌트
@@ -25,7 +24,6 @@ const PlayerDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  // 🔥 DataContext에서 DB 통신 함수들을 우아하게 가져옵니다.
   const {
     players,
     matches,
@@ -42,16 +40,29 @@ const PlayerDetail = () => {
 
   const player = useMemo(() => players.find((p) => p.id === id), [players, id]);
 
+  // 🔥 [핵심 버그 픽스] 중복(좀비) 로그 완벽 차단 알고리즘
   const playerLogs = useMemo(() => {
-    if (!player?.name || !match_logs) return [];
-    return match_logs
-      .filter((log) => log.name === player.name)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [player?.name, match_logs]);
+    if (!player?.id || !match_logs) return [];
+
+    // 1. 해당 선수의 로그만 1차 필터링
+    const filtered = match_logs.filter(
+      (log) => log.playerId === player.id || log.name === player.name,
+    );
+
+    // 2. 동일한 matchId(예: 2025-10-24_중앙대)를 가진 로그가 여러 개면 가장 최신 것만 남김
+    const uniqueLogsMap = {};
+    filtered.forEach((log) => {
+      // 배열의 뒤로 갈수록 최근에 삽입된 최신 데이터이므로 덮어씌움 (좀비 로그 도태)
+      uniqueLogsMap[log.matchId] = log;
+    });
+
+    return Object.values(uniqueLogsMap).sort(
+      (a, b) => new Date(b.date) - new Date(a.date),
+    );
+  }, [player, match_logs]);
 
   const handleGoBack = () => navigate("/players");
 
-  // 🔥 좋아요 로직: 전역 DB 함수만 호출하면 onSnapshot이 알아서 UI를 업데이트합니다.
   const handleLike = async (playerId) => {
     try {
       await handleLikePlayer(playerId);
@@ -60,16 +71,14 @@ const PlayerDetail = () => {
     }
   };
 
-  // 🔥 실시간 댓글 구독 로직: 전역 함수 활용
   useEffect(() => {
     if (!player?.id) return;
     const unsubscribe = subscribeToPlayerComments(player.id, (data) => {
       setRealtimeComments(data);
     });
-    return () => unsubscribe(); // 클린업 함수
+    return () => unsubscribe();
   }, [player?.id, subscribeToPlayerComments]);
 
-  // 🔥 댓글 작성 로직
   const handleComment = async (e) => {
     e.preventDefault();
     if (!commentInput.trim() || !player) return;
@@ -116,25 +125,25 @@ const PlayerDetail = () => {
     "춘계대회",
     "추계대회",
     "저학년대회",
+    "기타",
   ];
 
   const isGK = String(player?.position || "")
     .toUpperCase()
     .startsWith("GK");
 
-  // 🔥 DB에 저장된 누적 스탯(player.stats)을 우선적으로 보여주고, 없으면 로그로 계산합니다.
-  const careerTotalApps = player?.stats?.total?.apps || enrichedLogs.length;
+  const careerTotalApps = player?.stats?.total?.apps ?? enrichedLogs.length;
   const careerTotalMins =
-    player?.stats?.total?.mins ||
+    player?.stats?.total?.mins ??
     enrichedLogs.reduce((a, c) => a + (Number(c.minutes) || 0), 0);
   const careerTotalGoals =
-    player?.stats?.total?.goals ||
+    player?.stats?.total?.goals ??
     enrichedLogs.reduce((a, c) => a + (Number(c.goals) || 0), 0);
   const careerTotalAssists =
-    player?.stats?.total?.assists ||
+    player?.stats?.total?.assists ??
     enrichedLogs.reduce((a, c) => a + (Number(c.assists) || 0), 0);
   const careerTotalConceded =
-    player?.stats?.total?.conceded ||
+    player?.stats?.total?.conceded ??
     enrichedLogs.reduce((a, c) => a + (Number(c.conceded) || 0), 0);
 
   useEffect(() => {
@@ -161,7 +170,7 @@ const PlayerDetail = () => {
 
       <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden border border-gray-100">
         {/* 프로필 Hero 영역 */}
-        <div className="flex flex-col md:flex-row bg-gradient-to-br from-ssu-dark to-ssu-light text-white relative overflow-hidden">
+        <div className="flex flex-col md:flex-row bg-linear-to-br from-ssu-dark to-ssu-light text-white relative overflow-hidden">
           <div className="absolute -right-10 -top-10 text-[250px] font-black text-white/5 pointer-events-none select-none tracking-tighter leading-none">
             {player?.number || "-"}
           </div>
@@ -385,29 +394,28 @@ const PlayerDetail = () => {
                           (l) => Number(l.year) === Number(year),
                         );
 
-                        // 🔥 DB에 저장된 연도별 스탯 우선 적용
                         const yApps =
-                          player?.stats?.years?.[year]?.apps || yearLogs.length;
+                          player?.stats?.years?.[year]?.apps ?? yearLogs.length;
                         const yMins =
-                          player?.stats?.years?.[year]?.mins ||
+                          player?.stats?.years?.[year]?.mins ??
                           yearLogs.reduce(
                             (a, c) => a + (Number(c.minutes) || 0),
                             0,
                           );
                         const yGoals =
-                          player?.stats?.years?.[year]?.goals ||
+                          player?.stats?.years?.[year]?.goals ??
                           yearLogs.reduce(
                             (a, c) => a + (Number(c.goals) || 0),
                             0,
                           );
                         const yAsts =
-                          player?.stats?.years?.[year]?.assists ||
+                          player?.stats?.years?.[year]?.assists ??
                           yearLogs.reduce(
                             (a, c) => a + (Number(c.assists) || 0),
                             0,
                           );
                         const yConceded =
-                          player?.stats?.years?.[year]?.conceded ||
+                          player?.stats?.years?.[year]?.conceded ??
                           yearLogs.reduce(
                             (a, c) => a + (Number(c.conceded) || 0),
                             0,
@@ -595,10 +603,12 @@ const PlayerDetail = () => {
                                   : "교체"}
                               </span>
                             </td>
+                            {/* 🔥 시간 렌더링 안정성 보장 */}
                             <td className="py-4 px-4 font-bold text-gray-600">
-                              {log.minutes ? `${log.minutes}'` : "-"}
+                              {Number(log.minutes) > 0
+                                ? `${log.minutes}'`
+                                : "-"}
                             </td>
-
                             {!isGK ? (
                               <>
                                 <td className="py-4 px-4 font-black text-blue-600">
@@ -615,7 +625,8 @@ const PlayerDetail = () => {
                             )}
 
                             <td className="py-4 px-6">
-                              {log.mom ? (
+                              {/* 🔥 Boolean 값 완벽 검증 */}
+                              {log.mom === true || log.mom === "true" ? (
                                 <Award
                                   size={18}
                                   className="text-[#FFD60A] mx-auto drop-shadow-sm"
@@ -655,7 +666,6 @@ const PlayerDetail = () => {
                 등록
               </button>
             </form>
-
             <div className="space-y-3">
               {realtimeComments.map((c) => (
                 <div
@@ -792,7 +802,7 @@ const PlayerList = () => {
         )}
       </div>
 
-      <div className="absolute inset-0 bg-gradient-to-t from-ssu-dark via-ssu-black/30 to-transparent opacity-90 group-hover:opacity-100 transition-opacity duration-300 z-20"></div>
+      <div className="absolute inset-0 bg-linear-to-t from-ssu-dark via-ssu-black/30 to-transparent opacity-90 group-hover:opacity-100 transition-opacity duration-300 z-20"></div>
 
       <div className="absolute -right-4 -bottom-6 text-[150px] md:text-[220px] font-black text-white/5 group-hover:text-ssu-light/10 transition-colors duration-500 z-20 select-none pointer-events-none">
         {player?.number || "-"}

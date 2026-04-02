@@ -457,13 +457,20 @@ const Dashboard = ({ setActiveTab }) => {
               const birthdayPlayers = birthdaysByDate[dateKey] || [];
               const isSelected = selectedDate === fullDate;
 
-              // 오른쪽 끝 잘림 방지
-              const isRightSide = i % 7 > 3;
+              const hasEvents =
+                dayMatches.length > 0 || birthdayPlayers.length > 0;
+
+              const colIndex = i % 7;
+              let popupPositionClass = "left-1/2 -translate-x-1/2"; // 기본은 가운데 정렬
+              if (colIndex <= 1)
+                popupPositionClass = "left-0"; // 왼쪽 두 칸은 왼쪽(left-0)으로 붙임
+              else if (colIndex >= 5) popupPositionClass = "right-0"; // 오른쪽 두 칸은 오른쪽(right-0)으로 붙임
 
               return (
                 <div key={i} className="relative">
                   {/* 날짜 버튼 */}
                   <button
+                    disabled={!hasEvents}
                     onClick={() =>
                       setSelectedDate(isSelected ? null : fullDate)
                     }
@@ -493,38 +500,17 @@ const Dashboard = ({ setActiveTab }) => {
                     </div>
                   </button>
 
-                  {/* 상세 카드 */}
+                  {/* 🛠️ 상세 카드 팝업 위치 및 사이즈 수정 */}
                   {isSelected && (
                     <div
-                      className={`absolute bottom-full mb-3 z-50 animate-calendar-pop
-                ${isRightSide ? "right-0" : "left-0"}
-                w-65 md:w-75
-              `}
+                      className={`absolute bottom-full mb-1 z-50 animate-calendar-pop
+                        ${popupPositionClass}
+                        w-60 md:w-70 max-w-[85vw]
+                      `}
                     >
                       <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)] overflow-hidden">
                         {/* 상단 메타 */}
                         <div className="px-4 pt-4 pb-3 border-b border-slate-100 bg-white">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                                Selected date
-                              </p>
-                              <h4 className="mt-1 text-base font-black text-slate-900 tracking-tight">
-                                {fullDate.replace(/-/g, ".")}
-                              </h4>
-                            </div>
-
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedDate(null);
-                              }}
-                              className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-
                           <div className="mt-3 flex items-center gap-2 flex-wrap">
                             {dayMatches.length > 0 && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">

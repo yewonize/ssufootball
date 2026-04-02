@@ -9,6 +9,7 @@ import {
   Youtube,
   BookOpen,
 } from "lucide-react";
+import ssuEmblem from "../../logo.png";
 
 const Layout = ({
   children,
@@ -50,8 +51,8 @@ const Layout = ({
             }}
           >
             <img
-              src="logo.png"
-              alt="Logo"
+              src={ssuEmblem}
+              alt="icon"
               className="h-10 md:h-20 w-auto object-contain"
             />
           </div>

@@ -36,7 +36,14 @@ const AdminPanel = ({ toggleAdmin }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(
     () => sessionStorage.getItem("ssuAdmin") === "true",
   );
-  const [activeMenu, setActiveMenu] = useState("dashboard");
+  const [activeMenu, setActiveMenu] = useState(
+    () => sessionStorage.getItem("ssuAdminMenu") || "dashboard",
+  );
+
+  // 🔥 탭이 변경될 때마다 sessionStorage에 현재 위치 저장
+  React.useEffect(() => {
+    sessionStorage.setItem("ssuAdminMenu", activeMenu);
+  }, [activeMenu]);
 
   // 🔥 보안: 환경 변수에서 비밀번호를 가져옵니다.
   const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
@@ -173,7 +180,7 @@ const AdminPanel = ({ toggleAdmin }) => {
       </aside>
 
       {/* 🔴 모바일 하단 네비게이션 */}
-      <div className="md:hidden fixed bottom-0 left-0 w-full bg-ssu-black border-t border-white/10 flex justify-around p-3 pb-8 z-[9999] shadow-[0_-10px_40px_rgba(0,0,0,0.2)]">
+      <div className="md:hidden fixed bottom-0 left-0 w-full bg-ssu-black border-t border-white/10 flex justify-around p-3 pb-8 z-9999 shadow-[0_-10px_40px_rgba(0,0,0,0.2)]">
         {[
           { id: "dashboard", icon: <LayoutDashboard size={20} /> },
           { id: "analytics", icon: <BarChart3 size={20} /> },
